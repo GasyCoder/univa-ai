@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>UNUVIA — AI Workspace for Universities</title>
+<meta name="twitter:title" content="UNUVIA — AI Workspace for Universities">
+<meta name="twitter:description" content="UNUVIA is an AI workspace for universities, helping students, faculty, researchers, and staff access AI, institutional knowledge, and intelligent workflows in one secure platform.">
+<meta property="og:title" content="UNUVIA — AI Workspace for Universities">
+<meta property="og:description" content="UNUVIA is an AI workspace for universities, helping students, faculty, researchers, and staff access AI, institutional knowledge, and intelligent workflows in one secure platform.">
+<meta name="description" content="UNUVIA is an AI workspace for universities, helping students, faculty, researchers, and staff access AI, institutional knowledge, and intelligent workflows in one secure platform.">
+<link rel="icon" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&amp;display=block" rel="stylesheet">
+<style>
+body{margin:0;background:#EEF2EF;color:#111827;font-family:Geist,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#0A5C36;text-decoration:none}
+a:hover{color:#064E2A}
+textarea::placeholder{color:#98A2B3}
+:focus-visible{outline:2px solid #7CC35A;outline-offset:2px;border-radius:8px}
+@keyframes univaDot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+</style>
+</helmet>
+
+<div style="position:relative;height:100dvh;overflow:hidden;background:linear-gradient(180deg,#9CCBE4 0%,#C3DFEC 35%,#E6EEEA 62%,#F1ECDA 100%);padding:{{ framePad }}">
+  <div aria-hidden="true" style="position:absolute;left:0;right:0;bottom:0;height:46%;pointer-events:none">
+    <div style="position:absolute;left:-18%;top:6%;width:72%;height:190%;border-radius:50%;background:radial-gradient(ellipse 60% 38% at 52% 5%,#B5D96A 0%,#7DB23C 30%,#4A8526 62%,#2E5E18 85%)"></div>
+    <div style="position:absolute;right:-22%;top:0;width:78%;height:190%;border-radius:50%;background:radial-gradient(ellipse 55% 34% at 44% 4%,#C2DF78 0%,#86B946 30%,#4F8A29 62%,#30611A 85%)"></div>
+    <div style="position:absolute;left:-14%;top:50%;width:128%;height:160%;border-radius:50%;background:radial-gradient(ellipse 48% 24% at 62% 4%,#9CCB4C 0%,#5C9A2C 36%,#336B1C 66%,#1F4614 90%)"></div>
+  </div>
+
+  <div style="position:relative;height:100%;display:flex;border-radius:{{ frameRadius }};overflow:hidden;background:#F4F6F4;box-shadow:0 40px 100px -30px rgba(10,40,25,.45),0 0 0 1px rgba(255,255,255,.6)">
+
+    <sc-if value="{{ showSidebar }}" hint-placeholder-val="{{ true }}">
+      <div onClick="{{ closeSide }}" style="position:{{ sideScrimPos }};inset:0;z-index:20;background:rgba(5,20,12,.4);display:{{ sideScrimDisplay }}"></div>
+      <aside aria-label="Sidebar" style="position:{{ sidePos }};z-index:21;top:0;bottom:0;left:0;width:264px;flex-shrink:0;background:#061F14;color:#fff;display:flex;flex-direction:column;padding:20px 16px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px">
+          <a href="UNIVA Landing v3.dc.html" style="display:flex;align-items:center;gap:10px;color:#fff">
+            <img src="assets/univa-icon.png" alt="UNUVIA logo" width="30" height="30" style="width:30px;height:30px;border-radius:8px;box-shadow:0 0 0 1px rgba(255,255,255,.12)">
+            <span style="font-weight:700;font-size:18px;letter-spacing:.02em">UNUVIA</span>
+          </a>
+          <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+            <button type="button" aria-label="Close sidebar" onClick="{{ closeSide }}" style="width:36px;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:transparent;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:20px">close</button>
+          </sc-if>
+        </div>
+
+        <div style="margin-top:22px;display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.14);font-family:'Geist Mono',monospace;font-size:12px;letter-spacing:.06em;color:rgba(255,255,255,.85)">
+          <span style="font-family:'Material Symbols Rounded';font-size:18px;color:#B9F56A">account_balance</span>
+          <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">FACULTY OF SCIENCES</span>
+        </div>
+
+        <nav style="margin-top:14px;display:flex;flex-direction:column;gap:2px">
+          <button type="button" onClick="{{ newChat }}" style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;border:none;background:transparent;color:rgba(255,255,255,.75);cursor:pointer;font-family:'Geist Mono',monospace;font-size:12.5px;letter-spacing:.06em;text-align:left" style-hover="background:rgba(255,255,255,.06);color:#fff"><span style="font-family:'Material Symbols Rounded';font-size:19px">add</span>NEW CHAT</button>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;background:rgba(255,255,255,.09);color:#fff;font-family:'Geist Mono',monospace;font-size:12.5px;letter-spacing:.06em"><span style="font-family:'Material Symbols Rounded';font-size:19px;color:#B9F56A">auto_awesome</span>ASSISTANT</div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;color:rgba(255,255,255,.55);font-family:'Geist Mono',monospace;font-size:12.5px;letter-spacing:.06em"><span style="font-family:'Material Symbols Rounded';font-size:19px">description</span>DOCUMENTS</div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;color:rgba(255,255,255,.55);font-family:'Geist Mono',monospace;font-size:12.5px;letter-spacing:.06em"><span style="font-family:'Material Symbols Rounded';font-size:19px">biotech</span>RESEARCH</div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;color:rgba(255,255,255,.55);font-family:'Geist Mono',monospace;font-size:12.5px;letter-spacing:.06em"><span style="font-family:'Material Symbols Rounded';font-size:19px">menu_book</span>KNOWLEDGE</div>
+        </nav>
+
+        <div style="margin-top:22px;padding:0 12px;font-size:12px;color:rgba(255,255,255,.45)">Recent chats</div>
+        <div style="margin-top:6px;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px">
+          <sc-for list="{{ chatItems }}" as="c" hint-placeholder-count="0">
+            <div style="display:flex;align-items:center;border-radius:10px;background:{{ c.bg }}">
+              <button type="button" onClick="{{ c.open }}" style="flex:1;min-width:0;padding:9px 12px;border:none;background:transparent;color:{{ c.color }};cursor:pointer;font-family:inherit;font-size:13px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.title }}</button>
+              <button type="button" aria-label="Delete chat" onClick="{{ c.remove }}" style="width:30px;height:30px;margin-right:4px;border:none;border-radius:8px;background:transparent;color:rgba(255,255,255,.35);cursor:pointer;font-family:'Material Symbols Rounded';font-size:16px" style-hover="color:#fff;background:rgba(255,255,255,.06)">close</button>
+            </div>
+          </sc-for>
+          <sc-if value="{{ noChats }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:8px 12px;font-size:13px;color:rgba(255,255,255,.35)">No conversations yet</div>
+          </sc-if>
+        </div>
+
+        <div style="margin-top:12px;padding:14px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)">
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.6)"><span style="width:6px;height:6px;border-radius:9px;background:#B9F56A"></span>Pilot environment</div>
+          <div style="margin-top:4px;font-size:13.5px;font-weight:500;color:#fff">University of Mahajanga</div>
+          <a href="UNIVA Landing v3.dc.html" style="margin-top:12px;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;border-radius:10px;border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.8);font-family:'Geist Mono',monospace;font-size:11.5px;letter-spacing:.06em" style-hover="color:#fff;background:rgba(255,255,255,.06)"><span style="font-family:'Material Symbols Rounded';font-size:16px">arrow_back</span>BACK TO SITE</a>
+        </div>
+      </aside>
+    </sc-if>
+
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:{{ mainPad }};gap:14px">
+      <header style="display:flex;align-items:center;gap:10px">
+        <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+          <button type="button" aria-label="Open sidebar" onClick="{{ openSide }}" style="width:44px;height:44px;flex-shrink:0;border-radius:12px;border:1px solid rgba(17,24,39,.08);background:#fff;color:#111827;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:22px">menu</button>
+        </sc-if>
+        <div style="flex:1;min-width:0;max-width:420px;display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:12px;background:#fff;border:1px solid rgba(17,24,39,.07);color:#98A2B3;font-size:14px">
+          <span style="font-family:'Material Symbols Rounded';font-size:19px">search</span>
+          <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Search chats, documents, knowledge…</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:11px;padding:3px 6px;border-radius:6px;background:#F2F4F2">⌘K</span>
+        </div>
+        <div style="flex:1"></div>
+        <div style="position:relative">
+          <button type="button" aria-haspopup="listbox" aria-expanded="{{ roleOpen }}" onClick="{{ toggleRole }}" style="display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;border-radius:12px;border:1px solid rgba(17,24,39,.08);background:#fff;color:#111827;cursor:pointer;white-space:nowrap;font-family:'Geist Mono',monospace;font-size:12px;letter-spacing:.06em">
+            <span style="font-family:'Material Symbols Rounded';font-size:18px;color:#0A5C36">{{ roleIcon }}</span>{{ roleLabel }}<span style="font-family:'Material Symbols Rounded';font-size:18px;color:#98A2B3">expand_more</span>
+          </button>
+          <sc-if value="{{ roleOpen }}" hint-placeholder-val="{{ false }}">
+            <div role="listbox" style="position:absolute;right:0;top:50px;z-index:30;width:220px;padding:6px;border-radius:14px;background:#fff;border:1px solid rgba(17,24,39,.08);box-shadow:0 20px 40px -12px rgba(16,40,30,.25)">
+              <div style="padding:8px 10px 6px;font-size:11.5px;color:#98A2B3">Answer as an assistant for</div>
+              <sc-for list="{{ roles }}" as="r" hint-placeholder-count="4">
+                <button type="button" role="option" aria-selected="{{ r.selected }}" onClick="{{ r.pick }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;border:none;background:{{ r.bg }};color:#111827;cursor:pointer;font-family:inherit;font-size:14px;text-align:left" style-hover="background:#F3F6F3"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#0A5C36">{{ r.icon }}</span><span style="flex:1">{{ r.name }}</span><span style="font-family:'Material Symbols Rounded';font-size:17px;color:#0A5C36">{{ r.check }}</span></button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+        <span style="width:44px;height:44px;flex-shrink:0;border-radius:99px;background:#0A5C36;color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 3px #fff">HR</span>
+      </header>
+
+      <main ref="{{ scrollRef }}" style="flex:1;min-height:0;overflow-y:auto;border-radius:22px;background:#fff;border:1px solid rgba(17,24,39,.06);display:flex;flex-direction:column">
+        <div style="flex:1;display:flex;flex-direction:column;width:100%;max-width:820px;margin:0 auto;padding:clamp(20px,3vw,40px) clamp(14px,3vw,32px) 0">
+
+          <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:1;min-height:24px"></div>
+            <div style="text-align:center">
+              <h1 style="margin:0;font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-size:clamp(36px,5vw,56px);line-height:1.02;letter-spacing:-.02em;color:#0E1A12">How can AI help you today?</h1>
+              <p style="margin:14px auto 0;max-width:460px;font-size:16px;line-height:1.55;color:#667085;text-wrap:pretty">Ask questions, summarize documents and prepare academic or administrative work.</p>
+            </div>
+            <div style="height:28px"></div>
+          </sc-if>
+
+          <sc-if value="{{ hasMessages }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:1;display:flex;flex-direction:column;gap:26px;padding-bottom:24px">
+              <sc-for list="{{ messages }}" as="m" hint-placeholder-count="0">
+                <div style="display:flex;flex-direction:column;align-items:{{ m.align }};gap:8px">
+                  <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ true }}">
+                    <sc-if value="{{ m.hasFile }}" hint-placeholder-val="{{ false }}">
+                      <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;background:#EEF8E2;border:1px solid #DCEFC6;font-size:12.5px;color:#0A5C36"><span style="font-family:'Material Symbols Rounded';font-size:16px">description</span>{{ m.fileName }}</span>
+                    </sc-if>
+                    <div style="max-width:min(85%,600px);padding:12px 16px;border-radius:18px 18px 6px 18px;background:#F2F5F2;color:#1F2937;font-size:15px;line-height:1.55;white-space:pre-wrap;word-break:break-word">{{ m.display }}</div>
+                  </sc-if>
+                  <sc-if value="{{ m.isAssistant }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;gap:14px;width:100%">
+                      <img src="assets/univa-icon.png" alt="UNUVIA" width="30" height="30" style="width:30px;height:30px;border-radius:8px;flex-shrink:0">
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:10px">
+                        <div style="font-size:15px;line-height:1.65;color:#1F2937;word-break:break-word">{{ m.body }}</div>
+                        <div style="display:flex;gap:4px">
+                          <button type="button" onClick="{{ m.copy }}" style="display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:8px;border:1px solid rgba(17,24,39,.08);background:#fff;color:#667085;cursor:pointer;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.04em" style-hover="color:#111827;background:#F8FAF8"><span style="font-family:'Material Symbols Rounded';font-size:15px">content_copy</span>{{ m.copyLabel }}</button>
+                        </div>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:14px;align-items:center">
+                  <img src="assets/univa-icon.png" alt="UNUVIA logo" width="30" height="30" style="width:30px;height:30px;border-radius:8px">
+                  {{ thinking }}
+                </div>
+              </sc-if>
+              <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}">
+                <div role="alert" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:#FEF3F2;border:1px solid #FECDCA;color:#B42318;font-size:14px">
+                  <span style="font-family:'Material Symbols Rounded';font-size:19px">error</span>
+                  <span style="flex:1">{{ error }}</span>
+                  <button type="button" onClick="{{ retry }}" style="padding:7px 12px;border-radius:9px;border:1px solid #FDA29B;background:#fff;color:#B42318;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500">Retry</button>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <!-- composer -->
+          <div style="position:sticky;bottom:0;z-index:5;padding-bottom:14px;background:linear-gradient(rgba(255,255,255,0),#fff 22px)">
+            <div style="border-radius:20px;border:1px solid rgba(17,24,39,.1);background:linear-gradient(#FBFCFB,#fff);box-shadow:0 12px 32px -18px rgba(16,40,30,.25);padding:14px 14px 10px">
+              <sc-if value="{{ hasFile }}" hint-placeholder-val="{{ false }}">
+                <div style="display:inline-flex;align-items:center;gap:8px;margin-bottom:10px;padding:6px 6px 6px 10px;border-radius:10px;background:#EEF8E2;border:1px solid #DCEFC6;font-size:13px;color:#0A5C36">
+                  <span style="font-family:'Material Symbols Rounded';font-size:17px">description</span>{{ fileName }}
+                  <button type="button" aria-label="Remove file" onClick="{{ removeFile }}" style="width:24px;height:24px;border:none;border-radius:7px;background:transparent;color:#0A5C36;cursor:pointer;font-family:'Material Symbols Rounded';font-size:16px">close</button>
+                </div>
+              </sc-if>
+              <div style="display:flex;gap:10px">
+                <span aria-hidden="true" style="font-family:'Material Symbols Rounded';font-size:20px;color:#7CC35A;padding-top:2px">auto_awesome</span>
+                <textarea ref="{{ inputRef }}" aria-label="Message UNUVIA" rows="{{ inputRows }}" value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="{{ placeholder }}" style="flex:1;min-width:0;resize:none;border:none;outline:none;background:transparent;font-family:inherit;font-size:15.5px;line-height:1.5;color:#111827;max-height:220px;padding:0"></textarea>
+              </div>
+              <div style="margin-top:10px;display:flex;align-items:center;gap:6px">
+                <input ref="{{ fileRef }}" type="file" accept=".txt,.md,.csv,.json,.html,.xml" onChange="{{ onFile }}" style="display:none">
+                <button type="button" aria-label="Attach a text document" title="Attach a text document (.txt, .md, .csv)" onClick="{{ pickFile }}" style="width:36px;height:36px;border-radius:10px;border:none;background:transparent;color:#475467;cursor:pointer;font-family:'Material Symbols Rounded';font-size:20px" style-hover="background:#F2F5F2;color:#111827">attach_file</button>
+                <div style="flex:1"></div>
+                <div style="position:relative">
+                  <button type="button" aria-haspopup="listbox" aria-expanded="{{ modelOpen }}" onClick="{{ toggleModel }}" style="display:flex;align-items:center;gap:4px;height:36px;padding:0 8px 0 10px;border-radius:10px;border:none;background:transparent;color:#1F2937;cursor:pointer;white-space:nowrap;font-family:'Geist Mono',monospace;font-size:12px;letter-spacing:.04em" style-hover="background:#F2F5F2">{{ modelLabel }}<span style="font-family:'Material Symbols Rounded';font-size:18px;color:#98A2B3">expand_more</span></button>
+                  <sc-if value="{{ modelOpen }}" hint-placeholder-val="{{ false }}">
+                    <div role="listbox" style="position:absolute;right:0;bottom:44px;z-index:30;width:250px;padding:6px;border-radius:14px;background:#fff;border:1px solid rgba(17,24,39,.08);box-shadow:0 20px 40px -12px rgba(16,40,30,.25)">
+                      <sc-for list="{{ models }}" as="o" hint-placeholder-count="2">
+                        <button type="button" role="option" aria-selected="{{ o.selected }}" onClick="{{ o.pick }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;border:none;background:{{ o.bg }};cursor:pointer;font-family:inherit;text-align:left" style-hover="background:#F3F6F3">
+                          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500;color:#111827">{{ o.name }}</span><span style="font-size:12px;color:#667085">{{ o.note }}</span></span>
+                          <span style="font-family:'Material Symbols Rounded';font-size:17px;color:#0A5C36">{{ o.check }}</span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+                <button type="button" aria-label="Send message" onClick="{{ sendNow }}" disabled="{{ sendDisabled }}" style="width:40px;height:40px;border-radius:99px;border:none;background:{{ sendBg }};color:{{ sendColor }};cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:20px;transition:all .2s">arrow_upward</button>
+              </div>
+            </div>
+            <p style="margin:10px 0 0;text-align:center;font-size:12px;color:#98A2B3">UNUVIA uses Claude by Anthropic. AI can make mistakes, so verify important information.</p>
+          </div>
+
+          <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top:8px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px">
+              <button type="button" onClick="{{ chipSummarize }}" style="display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 14px;border-radius:12px;border:1px solid rgba(17,24,39,.08);background:#fff;color:#1F2937;cursor:pointer;font-family:inherit;font-size:14px;transition:all .2s" style-hover="border-color:rgba(10,92,54,.3);background:#F8FBF6"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#0A5C36">summarize</span>Summarize a document</button>
+              <button type="button" onClick="{{ chipResearch }}" style="display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 14px;border-radius:12px;border:1px solid rgba(17,24,39,.08);background:#fff;color:#1F2937;cursor:pointer;font-family:inherit;font-size:14px;transition:all .2s" style-hover="border-color:rgba(10,92,54,.3);background:#F8FBF6"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#0A5C36">travel_explore</span>Research a topic</button>
+              <button type="button" onClick="{{ chipReport }}" style="display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 14px;border-radius:12px;border:1px solid rgba(17,24,39,.08);background:#fff;color:#1F2937;cursor:pointer;font-family:inherit;font-size:14px;transition:all .2s" style-hover="border-color:rgba(10,92,54,.3);background:#F8FBF6"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#0A5C36">article</span>Generate a report</button>
+            </div>
+            <div style="margin-top:40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:12px">
+              <sc-for list="{{ assistants }}" as="a" hint-placeholder-count="4">
+                <button type="button" onClick="{{ a.use }}" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:22px 16px;border-radius:18px;border:1px solid rgba(17,24,39,.07);background:#fff;cursor:pointer;font-family:inherit;transition:all .25s ease" style-hover="transform:translateY(-3px);box-shadow:0 18px 36px -20px rgba(16,40,30,.3);border-color:rgba(10,92,54,.2)">
+                  <span style="width:44px;height:44px;border-radius:12px;background:#F1F5F1;color:#073D26;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:22px">{{ a.icon }}</span>
+                  <span style="font-size:16px;font-weight:600;letter-spacing:-.01em;color:#111827">{{ a.name }}</span>
+                  <span style="font-size:13.5px;line-height:1.45;color:#667085">{{ a.desc }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div style="flex:1;min-height:32px"></div>
+          </sc-if>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const STORE = 'univa-chats-v1';
+const MODELS = [
+  { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', label: 'CLAUDE HAIKU', note: 'Fast everyday answers' },
+  { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', label: 'CLAUDE SONNET', note: 'Deeper analysis and writing' }
+];
+const ROLES = [
+  { id: 'Student', icon: 'school', focus: 'a university student. Explain clearly, check understanding, encourage learning rather than doing graded work for them, and suggest study strategies.' },
+  { id: 'Faculty', icon: 'co_present', focus: 'a faculty member. Help with course preparation, teaching materials, assessment design, document analysis and research.' },
+  { id: 'Researcher', icon: 'biotech', focus: 'a researcher. Help with literature exploration, methods, structured extraction and academic writing. Never invent citations; say when a source must be verified.' },
+  { id: 'Staff', icon: 'badge', focus: 'university administrative staff. Help with institutional documents, reports, procedures, memos and clear replies to students.' }
+];
+const ASSISTANTS = [
+  { name: 'Study assistant', icon: 'school', desc: 'Explain concepts and build study guides.', role: 'Student', prompt: 'Explain this concept simply, then give me 3 questions to test myself: ' },
+  { name: 'Course planner', icon: 'co_present', desc: 'Draft course outlines and practice questions.', role: 'Faculty', prompt: 'Draft a 12-week course outline with learning outcomes for an introductory course on ' },
+  { name: 'Literature review', icon: 'biotech', desc: 'Structure sources, methods and findings.', role: 'Researcher', prompt: 'Help me structure a literature review on ' },
+  { name: 'Admin writer', icon: 'edit_document', desc: 'Draft reports, memos and replies.', role: 'Staff', prompt: 'Draft a short, clear memo to department heads about ' }
+];
+
+function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function inline(s) {
+  return s
+    .replace(/`([^`]+)`/g, '<code style="font-family:Geist Mono,monospace;font-size:.88em;padding:2px 5px;border-radius:5px;background:#F2F5F2">$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong style="font-weight:600;color:#111827">$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+}
+function md(text) {
+  const blocks = esc(text).split(/```/);
+  let html = '';
+  blocks.forEach((b, i) => {
+    if (i % 2) { html += `<pre style="margin:0 0 14px;padding:14px;border-radius:12px;background:#0B1F14;color:#E7F2E9;font-family:Geist Mono,monospace;font-size:13px;line-height:1.55;overflow-x:auto;white-space:pre">${b.replace(/^\w*\n/, '')}</pre>`; return; }
+    let list = null;
+    const close = () => { if (list) { html += `</${list}>`; list = null; } };
+    b.split('\n').forEach(line => {
+      const t = line.trim();
+      let m;
+      if (!t) { close(); return; }
+      if ((m = t.match(/^(#{1,4})\s+(.*)/))) { close(); html += `<h4 style="margin:18px 0 8px;font-size:${m[1].length <= 2 ? 18 : 16}px;font-weight:600;letter-spacing:-.01em;color:#111827">${inline(m[2])}</h4>`; return; }
+      if ((m = t.match(/^[-*•]\s+(.*)/))) { if (list !== 'ul') { close(); list = 'ul'; html += '<ul style="margin:0 0 14px;padding-left:20px;display:flex;flex-direction:column;gap:6px">'; } html += `<li>${inline(m[1])}</li>`; return; }
+      if ((m = t.match(/^\d+[.)]\s+(.*)/))) { if (list !== 'ol') { close(); list = 'ol'; html += '<ol style="margin:0 0 14px;padding-left:22px;display:flex;flex-direction:column;gap:6px">'; } html += `<li>${inline(m[1])}</li>`; return; }
+      close(); html += `<p style="margin:0 0 12px">${inline(t)}</p>`;
+    });
+    close();
+  });
+  return html;
+}
+
+class Component extends DCLogic {
+  state = { chats: [], currentId: null, draft: '', loading: false, error: null, model: MODELS[0].id, modelOpen: false, role: 'Faculty', roleOpen: false, file: null, sideOpen: false, copied: null, w: typeof window !== 'undefined' ? window.innerWidth : 1280 };
+  scrollRef = React.createRef();
+  inputRef = React.createRef();
+  fileRef = React.createRef();
+
+  componentDidMount() {
+    try { const saved = JSON.parse(localStorage.getItem(STORE) || 'null'); if (saved && Array.isArray(saved.chats)) this.setState({ chats: saved.chats, role: saved.role || 'Faculty', model: saved.model || MODELS[0].id }); } catch (e) {}
+    this.onResize = () => this.setState({ w: window.innerWidth });
+    window.addEventListener('resize', this.onResize);
+    this.onResize();
+    if (window.ResizeObserver) { this.ro = new ResizeObserver(() => { if (window.innerWidth !== this.state.w) this.onResize(); }); this.ro.observe(document.documentElement); }
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this.onResize); this.ro && this.ro.disconnect(); }
+  componentDidUpdate(prev, prevState) {
+    const cur = this.current(), prevCur = prevState.chats.find(c => c.id === prevState.currentId);
+    const n = cur ? cur.messages.length : 0, pn = prevCur ? prevCur.messages.length : 0;
+    if ((n !== pn || this.state.loading !== prevState.loading || this.state.currentId !== prevState.currentId) && this.scrollRef.current) {
+      const el = this.scrollRef.current; requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    }
+    if (prevState.chats !== this.state.chats || prevState.role !== this.state.role || prevState.model !== this.state.model) {
+      try { localStorage.setItem(STORE, JSON.stringify({ chats: this.state.chats.slice(0, 30), role: this.state.role, model: this.state.model })); } catch (e) {}
+    }
+  }
+  current() { return this.state.chats.find(c => c.id === this.state.currentId); }
+  focusInput(text) {
+    this.setState({ draft: text, modelOpen: false, roleOpen: false }, () => {
+      const el = this.inputRef.current; if (el) { el.focus(); el.setSelectionRange(text.length, text.length); this.autosize(el); }
+    });
+  }
+  autosize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 220) + 'px'; }
+
+  systemPrompt() {
+    const role = ROLES.find(r => r.id === this.state.role) || ROLES[1];
+    return `You are UNUVIA, an AI assistant inside a university's AI workspace (pilot environment at the University of Mahajanga, Madagascar). You are speaking with ${role.focus}
+Guidelines:
+- Reply in the same language the user writes in (French, Malagasy, English or other).
+- Be accurate, structured and concise. Use short headings and bullet lists when helpful, in Markdown.
+- In this demo you are not yet connected to the university's own regulations or document base. If asked about a specific institutional rule, give general guidance and say the official text should be checked with the relevant office.
+- Never invent sources, citations, statistics or official positions.
+- When a document is attached, base your answer on its content and say when information is missing.`;
+  }
+  async callClaude(messages) {
+    const body = { model: this.state.model, max_tokens: 2048, system: this.systemPrompt(), messages };
+    try { return await window.claude.complete(body); }
+    catch (e) {
+      if (/model/i.test(String(e && e.message))) { const b = { ...body }; delete b.model; return await window.claude.complete(b); }
+      throw e;
+    }
+  }
+  async send(override) {
+    const { draft, file, loading } = this.state;
+    if (loading) return;
+    const text = (override ?? draft).trim();
+    if (!text && !file) return;
+    const display = text || 'Summarize this document.';
+    const content = file ? `Attached document: ${file.name}\n"""\n${file.text}\n"""\n\n${display}` : display;
+    let chat = this.current();
+    const isNew = !chat;
+    if (isNew) chat = { id: String(Date.now()), title: display.slice(0, 60), messages: [] };
+    const updated = { ...chat, messages: [...chat.messages, { role: 'user', content, display, fileName: file ? file.name : null }] };
+    this.setState(s => ({ chats: [updated, ...s.chats.filter(c => c.id !== updated.id)], currentId: updated.id, draft: '', file: null, loading: true, error: null, modelOpen: false, roleOpen: false }), () => { if (this.inputRef.current) this.inputRef.current.style.height = 'auto'; });
+    await this.complete(updated);
+  }
+  async complete(chat) {
+    try {
+      const reply = await this.callClaude(chat.messages.map(m => ({ role: m.role, content: m.content })));
+      const done = { ...chat, messages: [...chat.messages, { role: 'assistant', content: String(reply || '').trim() || '…' }] };
+      this.setState(s => ({ chats: s.chats.map(c => c.id === chat.id ? done : c), loading: false }));
+    } catch (e) {
+      const msg = String(e && e.message || e);
+      this.setState({ loading: false, error: /rate|429/i.test(msg) ? 'Too many requests right now. Wait a moment, then retry.' : 'The assistant could not answer. Check your connection and retry.' });
+    }
+  }
+  retry() { const c = this.current(); if (c && !this.state.loading) { this.setState({ loading: true, error: null }); this.complete(c); } }
+  readFile(f) {
+    if (!f) return;
+    if (f.size > 2_000_000) { this.setState({ error: 'File too large. Use a text file under 2 MB.' }); return; }
+    const r = new FileReader();
+    r.onload = () => { let t = String(r.result || ''); if (t.length > 60000) t = t.slice(0, 60000) + '\n[…truncated]'; this.setState({ file: { name: f.name, text: t }, error: null }); if (this.inputRef.current) this.inputRef.current.focus(); };
+    r.readAsText(f);
+  }
+
+  renderVals() {
+    const { w, chats, currentId, draft, loading, error, model, modelOpen, role, roleOpen, file, sideOpen, copied } = this.state;
+    const isMobile = w < 900;
+    const cur = this.current();
+    const msgs = cur ? cur.messages : [];
+    const roleObj = ROLES.find(r => r.id === role) || ROLES[1];
+    const mObj = MODELS.find(m => m.id === model) || MODELS[0];
+    const canSend = !loading && (draft.trim() || file);
+    const dot = d => React.createElement('span', { key: d, style: { width: 7, height: 7, borderRadius: 9, background: '#0A5C36', display: 'inline-block', animation: `univaDot 1.2s ${d}s infinite ease-in-out` } });
+    return {
+      isMobile,
+      showSidebar: !isMobile || sideOpen,
+      sidePos: isMobile ? 'absolute' : 'relative',
+      sideScrimPos: 'absolute', sideScrimDisplay: isMobile ? 'block' : 'none',
+      openSide: () => this.setState({ sideOpen: true }),
+      closeSide: () => this.setState({ sideOpen: false }),
+      framePad: isMobile ? '0px' : '20px',
+      frameRadius: isMobile ? '0px' : '26px',
+      mainPad: isMobile ? '12px' : '18px 18px 18px 18px',
+      newChat: () => { this.setState({ currentId: null, error: null, sideOpen: false, file: null }); this.focusInput(''); },
+      chatItems: chats.map(c => ({
+        title: c.title, bg: c.id === currentId ? 'rgba(255,255,255,.09)' : 'transparent', color: c.id === currentId ? '#fff' : 'rgba(255,255,255,.65)',
+        open: () => this.setState({ currentId: c.id, error: null, sideOpen: false }),
+        remove: e => { e.stopPropagation(); this.setState(s => ({ chats: s.chats.filter(x => x.id !== c.id), currentId: s.currentId === c.id ? null : s.currentId })); }
+      })),
+      noChats: chats.length === 0,
+      roleOpen, roleIcon: roleObj.icon, roleLabel: role.toUpperCase(),
+      toggleRole: () => this.setState(s => ({ roleOpen: !s.roleOpen, modelOpen: false })),
+      roles: ROLES.map(r => ({ name: r.id, icon: r.icon, selected: r.id === role, check: r.id === role ? 'check' : '', bg: r.id === role ? '#F3F6F3' : 'transparent', pick: () => this.setState({ role: r.id, roleOpen: false }) })),
+      scrollRef: this.scrollRef, inputRef: this.inputRef, fileRef: this.fileRef,
+      isEmpty: msgs.length === 0 && !loading,
+      hasMessages: msgs.length > 0 || loading,
+      messages: msgs.map((m, i) => ({
+        isUser: m.role === 'user', isAssistant: m.role === 'assistant', align: m.role === 'user' ? 'flex-end' : 'flex-start',
+        display: m.display || m.content, hasFile: !!m.fileName, fileName: m.fileName || '',
+        body: m.role === 'assistant' ? React.createElement('div', { dangerouslySetInnerHTML: { __html: md(m.content) } }) : null,
+        copyLabel: copied === i ? 'COPIED' : 'COPY',
+        copy: () => { navigator.clipboard && navigator.clipboard.writeText(m.content); this.setState({ copied: i }); setTimeout(() => this.setState(s => s.copied === i ? { copied: null } : null), 1500); }
+      })),
+      loading,
+      thinking: React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 5, height: 30 }, 'aria-label': 'UNUVIA is thinking' }, [0, 0.15, 0.3].map(dot)),
+      hasError: !!error, error: error || '',
+      retry: () => this.retry(),
+      hasFile: !!file, fileName: file ? file.name : '',
+      removeFile: () => this.setState({ file: null }),
+      pickFile: () => this.fileRef.current && this.fileRef.current.click(),
+      onFile: e => { this.readFile(e.target.files && e.target.files[0]); e.target.value = ''; },
+      draft, inputRows: 2,
+      placeholder: file ? 'What should UNUVIA do with this document?' : (msgs.length ? 'Ask a follow-up…' : 'Ask anything about learning, research or university work…'),
+      onDraft: e => { this.setState({ draft: e.target.value }); this.autosize(e.target); },
+      onKey: e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); this.send(); } },
+      sendNow: () => this.send(),
+      sendDisabled: !canSend,
+      sendBg: canSend ? '#0B2A1A' : '#EEF1EE', sendColor: canSend ? '#fff' : '#98A2B3',
+      modelOpen, modelLabel: mObj.label,
+      toggleModel: () => this.setState(s => ({ modelOpen: !s.modelOpen, roleOpen: false })),
+      models: MODELS.map(m => ({ name: m.name, note: m.note, selected: m.id === model, check: m.id === model ? 'check' : '', bg: m.id === model ? '#F3F6F3' : 'transparent', pick: () => this.setState({ model: m.id, modelOpen: false }) })),
+      chipSummarize: () => { if (this.fileRef.current) this.fileRef.current.click(); },
+      chipResearch: () => this.focusInput('Give me a structured overview of current research on '),
+      chipReport: () => this.focusInput('Generate a structured report outline for '),
+      assistants: ASSISTANTS.map(a => ({ ...a, use: () => { this.setState({ role: a.role }); this.focusInput(a.prompt); } }))
+    };
+  }
+}
+</script>
+</body>
+</html>

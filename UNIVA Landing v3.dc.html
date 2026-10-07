@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>UNUVIA — AI Workspace for Universities</title>
+<meta name="twitter:title" content="UNUVIA — AI Workspace for Universities">
+<meta name="twitter:description" content="UNUVIA is an AI workspace for universities, helping students, faculty, researchers, and staff access AI, institutional knowledge, and intelligent workflows in one secure platform.">
+<meta name="description" content="UNUVIA is an AI workspace for universities, helping students, faculty, researchers, and staff access AI, institutional knowledge, and intelligent workflows in one secure platform.">
+<meta property="og:title" content="UNUVIA — AI Workspace for Universities">
+<meta property="og:description" content="UNUVIA is an AI workspace for universities, helping students, faculty, researchers, and staff access AI, institutional knowledge, and intelligent workflows in one secure platform.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&amp;display=block" rel="stylesheet">
+<style>
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{margin:0;background:#F8FAF8;color:#111827;font-family:Geist,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+*{box-sizing:border-box}
+a{color:#0A5C36;text-decoration:none}
+a:hover{color:#064E2A}
+:focus-visible{outline:2px solid #B9F56A;outline-offset:3px;border-radius:8px}
+</style>
+</helmet>
+
+<header style="position:fixed;top:0;left:0;right:0;z-index:50;display:flex;justify-content:center;padding:{{ navOuterPad }};transition:padding .35s ease;pointer-events:none">
+  <nav aria-label="Main" style="pointer-events:auto;width:100%;max-width:{{ navMax }};display:flex;align-items:center;justify-content:space-between;gap:24px;padding:{{ navInnerPad }};border-radius:999px;background:{{ navBg }};backdrop-filter:{{ navBlur }};-webkit-backdrop-filter:{{ navBlur }};box-shadow:{{ navShadow }};border:1px solid {{ navBorder }};transition:all .35s cubic-bezier(.2,.7,.2,1)">
+    <a href="#top" aria-label="UNUVIA home" style="display:flex;align-items:center;gap:10px;color:#fff;flex-shrink:0">
+      <img src="assets/univa-icon.png" alt="UNUVIA logo" width="34" height="34" style="width:34px;height:34px;border-radius:9px;display:block;box-shadow:0 0 0 1px rgba(255,255,255,.12)">
+      <span style="font-weight:700;font-size:19px;letter-spacing:.02em">UNUVIA</span>
+    </a>
+    <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:4px">
+        <a href="#features" style="color:rgba(255,255,255,.78);font-size:14px;font-weight:500;padding:8px 14px;border-radius:999px;transition:all .2s" style-hover="color:#fff;background:rgba(255,255,255,.08)">Product</a>
+        <a href="#audiences" style="color:rgba(255,255,255,.78);font-size:14px;font-weight:500;padding:8px 14px;border-radius:999px;transition:all .2s" style-hover="color:#fff;background:rgba(255,255,255,.08)">Solutions</a>
+        <a href="#platform" style="color:rgba(255,255,255,.78);font-size:14px;font-weight:500;padding:8px 14px;border-radius:999px;transition:all .2s" style-hover="color:#fff;background:rgba(255,255,255,.08)">AI</a>
+        <a href="#administration" style="color:rgba(255,255,255,.78);font-size:14px;font-weight:500;padding:8px 14px;border-radius:999px;transition:all .2s" style-hover="color:#fff;background:rgba(255,255,255,.08)">For Universities</a>
+        <a href="#deployment" style="color:rgba(255,255,255,.78);font-size:14px;font-weight:500;padding:8px 14px;border-radius:999px;transition:all .2s" style-hover="color:#fff;background:rgba(255,255,255,.08)">Resources</a>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <a href="UNIVA Assistant.dc.html" style="display:inline-flex;align-items:center;gap:6px;color:#fff;font-size:14px;font-weight:500;padding:9px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.18);transition:all .2s" style-hover="color:#fff;background:rgba(255,255,255,.08)">Sign In <span aria-hidden="true" style="font-family:'Material Symbols Rounded';font-size:16px">login</span></a>
+        <a href="#request" style="background:#B9F56A;color:#06301C;font-size:14px;font-weight:600;padding:10px 18px;border-radius:999px;transition:all .2s" style-hover="background:#C9FF7A;color:#06301C;transform:translateY(-1px)">Request Access</a>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+      <button type="button" aria-label="{{ menuLabel }}" aria-expanded="{{ menuOpen }}" aria-controls="mobile-menu" onClick="{{ toggleMenu }}" style="width:44px;height:44px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer">
+        <span aria-hidden="true" style="font-family:'Material Symbols Rounded';font-size:22px">{{ menuIcon }}</span>
+      </button>
+    </sc-if>
+  </nav>
+</header>
+<sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+  <div id="mobile-menu" style="position:fixed;top:76px;left:12px;right:12px;z-index:49;background:#06301C;border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:12px;box-shadow:0 24px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:2px">
+    <a href="#features" onClick="{{ closeMenu }}" style="color:#fff;font-size:17px;font-weight:500;padding:14px 16px;border-radius:14px" style-hover="color:#fff;background:rgba(255,255,255,.06)">Product</a>
+    <a href="#audiences" onClick="{{ closeMenu }}" style="color:#fff;font-size:17px;font-weight:500;padding:14px 16px;border-radius:14px" style-hover="color:#fff;background:rgba(255,255,255,.06)">Solutions</a>
+    <a href="#platform" onClick="{{ closeMenu }}" style="color:#fff;font-size:17px;font-weight:500;padding:14px 16px;border-radius:14px" style-hover="color:#fff;background:rgba(255,255,255,.06)">AI</a>
+    <a href="#administration" onClick="{{ closeMenu }}" style="color:#fff;font-size:17px;font-weight:500;padding:14px 16px;border-radius:14px" style-hover="color:#fff;background:rgba(255,255,255,.06)">For Universities</a>
+    <a href="#deployment" onClick="{{ closeMenu }}" style="color:#fff;font-size:17px;font-weight:500;padding:14px 16px;border-radius:14px" style-hover="color:#fff;background:rgba(255,255,255,.06)">Resources</a>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 4px 4px">
+      <a href="UNIVA Assistant.dc.html" onClick="{{ closeMenu }}" style="text-align:center;color:#fff;font-size:15px;font-weight:500;padding:14px;border-radius:999px;border:1px solid rgba(255,255,255,.18)">Sign In</a>
+      <a href="#request" onClick="{{ closeMenu }}" style="text-align:center;background:#B9F56A;color:#06301C;font-size:15px;font-weight:600;padding:14px;border-radius:999px">Request Access</a>
+    </div>
+  </div>
+</sc-if>
+
+<main id="top">
+<!-- HERO -->
+<section aria-labelledby="hero-title" style="position:relative;padding:12px 12px 0">
+  <div aria-hidden="true" style="position:absolute;top:12px;left:12px;right:12px;bottom:clamp(120px,24vw,360px);background:#073D26;border-radius:28px;overflow:hidden">
+    <div style="position:absolute;inset:0;background:radial-gradient(60% 50% at 50% 0%,rgba(185,245,106,.10),transparent 70%)"></div>
+    <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:64px 64px;mask-image:radial-gradient(70% 60% at 50% 20%,#000,transparent);-webkit-mask-image:radial-gradient(70% 60% at 50% 20%,#000,transparent)"></div>
+  </div>
+  <div style="position:relative;max-width:1240px;margin:0 auto;padding:clamp(132px,16vw,184px) clamp(16px,4vw,32px) 0;display:flex;flex-direction:column;align-items:center;text-align:center">
+    <div style="display:inline-flex;align-items:center;gap:10px;padding:4px 14px 4px 4px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06)">
+      <span style="padding:5px 10px;border-radius:999px;background:#B9F56A;color:#06301C;font-size:12px;font-weight:600">AI for Higher Education</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;color:rgba(255,255,255,.82)">One workspace, every role</span>
+    </div>
+    <sc-if value="{{ headlineA }}" hint-placeholder-val="{{ true }}">
+      <h1 id="hero-title" style="margin:24px 0 0;max-width:15ch;color:#fff;font-size:clamp(40px,6.4vw,80px);line-height:1.02;font-weight:600;letter-spacing:-.04em;text-wrap:balance">One AI workspace for the entire university.</h1>
+    </sc-if>
+    <sc-if value="{{ headlineB }}" hint-placeholder-val="{{ false }}">
+      <h1 id="hero-title" style="margin:24px 0 0;max-width:15ch;color:#fff;font-size:clamp(40px,6.4vw,80px);line-height:1.02;font-weight:600;letter-spacing:-.04em;text-wrap:balance">One AI workspace for the entire university.</h1>
+    </sc-if>
+    <p style="margin:24px 0 0;max-width:600px;color:rgba(255,255,255,.74);font-size:clamp(16px,1.6vw,18px);line-height:1.6;text-wrap:pretty">Give students, faculty, researchers, and university staff secure access to AI, institutional knowledge, and intelligent workflows from one platform.</p>
+    <div style="margin-top:36px;display:flex;flex-wrap:wrap;justify-content:center;gap:12px">
+      <a href="#request" style="display:inline-flex;align-items:center;gap:8px;min-height:50px;padding:0 26px;border-radius:999px;background:#B9F56A;color:#06301C;font-size:15px;font-weight:600;transition:all .2s" style-hover="background:#C9FF7A;color:#06301C;transform:translateY(-1px);box-shadow:0 10px 30px rgba(185,245,106,.25)">Request Access <span aria-hidden="true" style="font-family:'Material Symbols Rounded';font-size:18px">arrow_forward</span></a>
+      <a href="#features" style="display:inline-flex;align-items:center;min-height:50px;padding:0 26px;border-radius:999px;border:1px solid rgba(255,255,255,.22);color:#fff;font-size:15px;font-weight:500;transition:all .2s" style-hover="color:#fff;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.35)">Explore Platform</a>
+    </div>
+    <p style="margin:20px 0 0;color:rgba(255,255,255,.55);font-size:13px">Built for students, faculty and university staff.</p>
+
+    <!-- PRODUCT PREVIEW -->
+    <div style="position:relative;width:100%;max-width:1160px;margin-top:clamp(48px,7vw,80px)">
+      <div data-float="" style="position:absolute;z-index:3;left:-28px;top:120px;display:{{ floatDisplay }};align-items:center;gap:10px;padding:10px 14px 10px 10px;background:#fff;border:1px solid rgba(6,78,42,.08);border-radius:14px;box-shadow:0 18px 40px rgba(6,40,24,.18);text-align:left">
+        <span style="width:32px;height:32px;border-radius:9px;background:#EEF8E2;color:#0A5C36;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:18px">verified_user</span>
+        <span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;font-weight:600;color:#111827">Answer from authorized sources</span><span style="font-size:11px;color:#667085">Academic Regulations · §4.2</span></span>
+      </div>
+      <div data-float="" style="position:absolute;z-index:3;right:-24px;top:300px;display:{{ floatDisplay }};align-items:center;gap:10px;padding:10px 14px 10px 10px;background:#fff;border:1px solid rgba(6,78,42,.08);border-radius:14px;box-shadow:0 18px 40px rgba(6,40,24,.18);text-align:left">
+        <span style="width:32px;height:32px;border-radius:9px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:18px">description</span>
+        <span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;font-weight:600;color:#111827">Thesis draft summarized</span><span style="font-size:11px;color:#667085">84 pages · 6 key findings</span></span>
+      </div>
+
+      <div style="position:relative;border-radius:20px;padding:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);box-shadow:0 40px 100px -20px rgba(3,30,18,.55)">
+        <div style="background:#fff;border-radius:14px;overflow:hidden;text-align:left;display:flex;flex-direction:column">
+          <!-- app bar -->
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #EEF1EE">
+            <img src="assets/univa-icon.png" alt="UNUVIA logo" width="24" height="24" style="width:24px;height:24px;border-radius:6px">
+            <span style="font-size:13px;font-weight:600;color:#111827">UNUVIA</span>
+            <span style="font-size:12px;color:#98A2B3">/</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#344054;font-weight:500;white-space:nowrap">Faculty of Sciences <span style="font-family:'Material Symbols Rounded';font-size:16px;color:#98A2B3">unfold_more</span></span>
+            <div style="flex:1;display:flex;justify-content:center;min-width:0">
+              <div style="display:{{ wideDisplay }};align-items:center;gap:8px;width:100%;max-width:360px;padding:7px 10px;border-radius:9px;background:#F5F7F5;border:1px solid #EEF1EE;color:#98A2B3;font-size:12px">
+                <span style="font-family:'Material Symbols Rounded';font-size:16px">search</span>
+                <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Search documents, assistants, knowledge…</span>
+                <span style="font-family:'Geist Mono',monospace;font-size:10px;padding:2px 5px;border-radius:5px;background:#fff;border:1px solid #E4E7EC">⌘K</span>
+              </div>
+            </div>
+            <span style="font-family:'Material Symbols Rounded';font-size:19px;color:#667085">notifications</span>
+            <span style="width:26px;height:26px;border-radius:99px;background:#0A5C36;color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">HR</span>
+          </div>
+          <div style="display:flex;min-height:0">
+            <!-- sidebar -->
+            <sc-if value="{{ showSidebar }}" hint-placeholder-val="{{ true }}">
+              <aside style="width:212px;flex-shrink:0;padding:14px 10px;border-right:1px solid #EEF1EE;background:#FBFCFB;display:flex;flex-direction:column;gap:2px">
+                <sc-for list="{{ sidebar }}" as="s" hint-placeholder-count="8">
+                  <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;font-size:13px;font-weight:{{ s.weight }};color:{{ s.color }};background:{{ s.bg }}">
+                    <span style="font-family:'Material Symbols Rounded';font-size:18px;color:{{ s.iconColor }}">{{ s.icon }}</span>{{ s.label }}
+                  </div>
+                </sc-for>
+                <div style="margin-top:auto;padding:12px;border-radius:10px;background:#F1F7EC;border:1px solid #E1EED5">
+                  <div style="font-size:11px;font-weight:600;color:#0A5C36">Model</div>
+                  <div style="margin-top:4px;font-size:12px;color:#344054;display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:9px;background:#3BA55C"></span>Claude · Default</div>
+                </div>
+              </aside>
+            </sc-if>
+            <!-- main -->
+            <div style="flex:1;min-width:0;padding:clamp(16px,2.4vw,28px);background:#F8FAF8;display:flex;flex-direction:column;gap:18px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap">
+                <div>
+                  <div style="font-size:12px;color:#667085">Tuesday, 7 October</div>
+                  <div style="margin-top:2px;font-size:clamp(17px,2vw,21px);font-weight:600;letter-spacing:-.02em;color:#111827">Good morning, Dr. Rakotomalala</div>
+                </div>
+                <div style="display:flex;gap:6px">
+                  <span style="font-size:11px;font-weight:500;color:#344054;padding:6px 10px;border-radius:99px;background:#fff;border:1px solid #E4E7EC">Faculty</span>
+                  <span style="font-size:11px;font-weight:500;color:#0A5C36;padding:6px 10px;border-radius:99px;background:#EEF8E2;border:1px solid #DCEFC6">3 workspaces</span>
+                </div>
+              </div>
+              <!-- assistant -->
+              <div style="background:#fff;border:1px solid #E6ECE7;border-radius:16px;padding:16px;box-shadow:0 1px 2px rgba(16,24,40,.04)">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="width:30px;height:30px;border-radius:9px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:18px;flex-shrink:0">auto_awesome</span>
+                  <span style="font-size:clamp(15px,1.6vw,18px);color:#98A2B3;font-weight:500;letter-spacing:-.01em">How can AI help you today?</span>
+                </div>
+                <div style="margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+                  <div style="display:flex;gap:6px;color:#667085">
+                    <span style="width:30px;height:30px;border-radius:8px;border:1px solid #E4E7EC;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:17px">attach_file</span>
+                    <span style="height:30px;padding:0 10px;border-radius:8px;border:1px solid #E4E7EC;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:500"><span style="font-family:'Material Symbols Rounded';font-size:15px">menu_book</span>University knowledge</span>
+                  </div>
+                  <span style="width:32px;height:32px;border-radius:99px;background:#0A5C36;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:18px">arrow_upward</span>
+                </div>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:-6px">
+                <sc-for list="{{ quickActions }}" as="q" hint-placeholder-count="5">
+                  <span style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:99px;background:#fff;border:1px solid #E6ECE7;font-size:12px;font-weight:500;color:#344054;white-space:nowrap"><span style="font-family:'Material Symbols Rounded';font-size:15px;color:#0A5C36">{{ q.icon }}</span>{{ q.label }}</span>
+                </sc-for>
+              </div>
+              <!-- cards -->
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px">
+                <div style="background:#fff;border:1px solid #E6ECE7;border-radius:14px;padding:14px">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;color:#667085;font-weight:500">AI usage <span style="color:#98A2B3">This week</span></div>
+                  <div style="margin-top:6px;font-size:22px;font-weight:600;letter-spacing:-.02em;color:#111827">12,480 <span style="font-size:11px;font-weight:500;color:#3BA55C">requests</span></div>
+                  <div style="margin-top:10px;height:44px;display:flex;align-items:flex-end;gap:5px">
+                    <span style="flex:1;height:40%;border-radius:4px;background:#DCEFC6"></span><span style="flex:1;height:62%;border-radius:4px;background:#DCEFC6"></span><span style="flex:1;height:55%;border-radius:4px;background:#DCEFC6"></span><span style="flex:1;height:80%;border-radius:4px;background:#DCEFC6"></span><span style="flex:1;height:100%;border-radius:4px;background:#0A5C36"></span><span style="flex:1;height:48%;border-radius:4px;background:#DCEFC6"></span><span style="flex:1;height:30%;border-radius:4px;background:#DCEFC6"></span>
+                  </div>
+                </div>
+                <div style="background:#fff;border:1px solid #E6ECE7;border-radius:14px;padding:14px">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;color:#667085;font-weight:500">Active users <span style="color:#98A2B3">Today</span></div>
+                  <div style="margin-top:6px;font-size:22px;font-weight:600;letter-spacing:-.02em;color:#111827">1,236</div>
+                  <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
+                    <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#667085"><span style="width:62px">Students</span><span style="flex:1;height:6px;border-radius:9px;background:#F0F3F0;overflow:hidden"><span style="display:block;width:72%;height:100%;background:#0A5C36"></span></span></div>
+                    <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#667085"><span style="width:62px">Faculty</span><span style="flex:1;height:6px;border-radius:9px;background:#F0F3F0;overflow:hidden"><span style="display:block;width:38%;height:100%;background:#7CC35A"></span></span></div>
+                    <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#667085"><span style="width:62px">Staff</span><span style="flex:1;height:6px;border-radius:9px;background:#F0F3F0;overflow:hidden"><span style="display:block;width:24%;height:100%;background:#B9F56A"></span></span></div>
+                  </div>
+                </div>
+                <div style="background:#fff;border:1px solid #E6ECE7;border-radius:14px;padding:14px">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;color:#667085;font-weight:500">Research workspaces <span style="font-family:'Material Symbols Rounded';font-size:16px;color:#98A2B3">north_east</span></div>
+                  <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+                    <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#1F2937"><span style="width:22px;height:22px;border-radius:6px;background:#EEF8E2;color:#0A5C36;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:14px">eco</span><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Mangrove ecosystems</span><span style="font-size:11px;color:#98A2B3">24 src</span></div>
+                    <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#1F2937"><span style="width:22px;height:22px;border-radius:6px;background:#EEF2FF;color:#4559C9;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:14px">water</span><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Coastal water quality</span><span style="font-size:11px;color:#98A2B3">17 src</span></div>
+                    <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#1F2937"><span style="width:22px;height:22px;border-radius:6px;background:#FFF4E5;color:#B5651D;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:14px">school</span><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Teacher training study</span><span style="font-size:11px;color:#98A2B3">9 src</span></div>
+                  </div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px">
+                <div style="background:#fff;border:1px solid #E6ECE7;border-radius:14px;padding:14px">
+                  <div style="font-size:12px;color:#667085;font-weight:500">Recent documents</div>
+                  <div style="margin-top:10px;display:flex;flex-direction:column;gap:2px">
+                    <div style="display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12px;color:#1F2937"><span style="font-family:'Geist Mono',monospace;font-size:9px;font-weight:500;padding:3px 5px;border-radius:5px;background:#FDECEC;color:#B42318">PDF</span><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Academic regulations 2026</span><span style="font-size:11px;color:#98A2B3">2h</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12px;color:#1F2937"><span style="font-family:'Geist Mono',monospace;font-size:9px;font-weight:500;padding:3px 5px;border-radius:5px;background:#EAF1FD;color:#2557B8">DOC</span><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">L3 Biology syllabus draft</span><span style="font-size:11px;color:#98A2B3">5h</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12px;color:#1F2937"><span style="font-family:'Geist Mono',monospace;font-size:9px;font-weight:500;padding:3px 5px;border-radius:5px;background:#E8F6EC;color:#1E7B3C">XLS</span><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Enrollment by faculty</span><span style="font-size:11px;color:#98A2B3">1d</span></div>
+                  </div>
+                </div>
+                <div style="background:#fff;border:1px solid #E6ECE7;border-radius:14px;padding:14px">
+                  <div style="font-size:12px;color:#667085;font-weight:500">Popular assistants</div>
+                  <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+                    <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#1F2937"><span style="width:26px;height:26px;border-radius:8px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:15px">gavel</span><span style="flex:1">Regulations assistant</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#1F2937"><span style="width:26px;height:26px;border-radius:8px;background:#EEF8E2;color:#0A5C36;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:15px">biotech</span><span style="flex:1">Literature review</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#1F2937"><span style="width:26px;height:26px;border-radius:8px;background:#F2F4F7;color:#344054;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:15px">assignment</span><span style="flex:1">Course planner</span></div>
+                  </div>
+                </div>
+                <div style="background:#fff;border:1px solid #E6ECE7;border-radius:14px;padding:14px">
+                  <div style="font-size:12px;color:#667085;font-weight:500">Recent activity</div>
+                  <div style="margin-top:10px;display:flex;flex-direction:column;gap:9px">
+                    <div style="display:flex;gap:8px;font-size:12px;color:#344054;line-height:1.4"><span style="width:6px;height:6px;margin-top:6px;border-radius:9px;background:#3BA55C;flex-shrink:0"></span><span>Report draft generated for <b style="font-weight:600;color:#111827">Dean's office</b></span></div>
+                    <div style="display:flex;gap:8px;font-size:12px;color:#344054;line-height:1.4"><span style="width:6px;height:6px;margin-top:6px;border-radius:9px;background:#B9F56A;flex-shrink:0"></span><span>12 sources added to <b style="font-weight:600;color:#111827">Mangrove ecosystems</b></span></div>
+                    <div style="display:flex;gap:8px;font-size:12px;color:#344054;line-height:1.4"><span style="width:6px;height:6px;margin-top:6px;border-radius:9px;background:#98A2B3;flex-shrink:0"></span><span>Knowledge base synced</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY US -->
+<section id="why" aria-labelledby="why-title" style="max-width:1240px;margin:0 auto;padding:clamp(96px,12vw,152px) clamp(20px,4vw,32px) 0">
+  <div data-reveal="" style="text-align:center;max-width:680px;margin:0 auto">
+    <h2 id="why-title" style="margin:0;font-size:clamp(32px,4.4vw,52px);line-height:1.06;font-weight:600;letter-spacing:-.035em;color:#111827;text-wrap:balance">Why universities choose our platform</h2>
+    <p style="margin:18px auto 0;max-width:520px;font-size:17px;line-height:1.6;color:#667085;text-wrap:pretty">One secure AI environment designed for the different needs of the university community.</p>
+  </div>
+  <div style="margin-top:56px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px">
+    <article data-reveal="" style="padding:36px 32px;border-radius:24px;background:#073D26;color:#fff;display:flex;flex-direction:column;gap:16px;min-height:300px;transition:transform .3s ease" style-hover="transform:translateY(-4px)">
+      <span style="width:48px;height:48px;border-radius:14px;background:#B9F56A;color:#06301C;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:24px">groups</span>
+      <h3 style="margin:auto 0 0;font-size:22px;font-weight:600;letter-spacing:-.02em">AI for everyone</h3>
+      <p style="margin:0;font-size:15px;line-height:1.6;color:rgba(255,255,255,.72)">Students, faculty and staff can access AI from one unified university platform.</p>
+    </article>
+    <article data-reveal="" style="padding:36px 32px;border-radius:24px;background:#fff;border:1px solid rgba(6,78,42,.08);display:flex;flex-direction:column;gap:16px;min-height:300px;box-shadow:0 1px 2px rgba(16,24,40,.03);transition:all .3s ease" style-hover="transform:translateY(-4px);box-shadow:0 20px 40px -20px rgba(6,40,24,.18)">
+      <span style="width:48px;height:48px;border-radius:14px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:24px">account_tree</span>
+      <h3 style="margin:auto 0 0;font-size:22px;font-weight:600;letter-spacing:-.02em;color:#111827">Institutional Knowledge</h3>
+      <p style="margin:0;font-size:15px;line-height:1.6;color:#667085">Connect policies, procedures, academic documents and institutional resources.</p>
+    </article>
+    <article data-reveal="" style="padding:36px 32px;border-radius:24px;background:#fff;border:1px solid rgba(6,78,42,.08);display:flex;flex-direction:column;gap:16px;min-height:300px;box-shadow:0 1px 2px rgba(16,24,40,.03);transition:all .3s ease" style-hover="transform:translateY(-4px);box-shadow:0 20px 40px -20px rgba(6,40,24,.18)">
+      <span style="width:48px;height:48px;border-radius:14px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:24px">admin_panel_settings</span>
+      <h3 style="margin:auto 0 0;font-size:22px;font-weight:600;letter-spacing:-.02em;color:#111827">Secure &amp; Controlled Access</h3>
+      <p style="margin:0;font-size:15px;line-height:1.6;color:#667085">Manage roles, access and AI usage across the institution.</p>
+    </article>
+  </div>
+</section>
+<!-- AUDIENCES -->
+<section id="audiences" aria-labelledby="aud-title" style="max-width:1240px;margin:0 auto;padding:clamp(96px,12vw,152px) clamp(20px,4vw,32px) 0">
+  <div data-reveal="" style="text-align:center;max-width:760px;margin:0 auto;display:flex;flex-direction:column;align-items:center">
+    <div style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border-radius:999px;background:#fff;border:1px solid rgba(17,24,39,.07);box-shadow:0 1px 2px rgba(16,24,40,.04);font-size:13px;font-weight:500;color:#1F2937"><span aria-hidden="true" style="width:22px;height:22px;border-radius:99px;background:#0B2A1A;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:13px">auto_awesome</span>Solutions</div>
+    <h2 id="aud-title" style="margin:16px 0 0;font-size:clamp(32px,4.4vw,52px);line-height:1.06;font-weight:600;letter-spacing:-.035em;color:#111827;text-wrap:balance">AI for every part of the university.</h2>
+  </div>
+  <div data-reveal="" style="margin-top:32px;display:flex;justify-content:center">
+    <div role="tablist" aria-label="Audiences" style="display:flex;flex-wrap:wrap;justify-content:center;gap:4px;padding:4px;border-radius:16px;background:#EEF2EF;border:1px solid rgba(17,24,39,.05);max-width:100%">
+      <sc-for list="{{ audiences }}" as="a" hint-placeholder-count="4">
+        <button type="button" role="tab" aria-selected="{{ a.selected }}" onClick="{{ a.onSelect }}" style="display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:6px 14px 6px 6px;border-radius:12px;border:none;cursor:pointer;font-family:inherit;font-size:14px;font-weight:500;background:{{ a.tabBg }};color:{{ a.tabColor }};box-shadow:{{ a.tabShadow }};transition:all .25s ease">
+          <span aria-hidden="true" style="width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:17px;background:{{ a.tabIconBg }};color:{{ a.tabIconColor }};transition:all .25s ease">{{ a.icon }}</span>{{ a.name }}
+        </button>
+      </sc-for>
+    </div>
+  </div>
+  <div style="margin-top:40px;display:flex;flex-wrap:wrap;gap:16px;align-items:stretch">
+    <sc-for list="{{ audiences }}" as="a" hint-placeholder-count="4">
+      <article onClick="{{ a.onSelect }}" style="flex:{{ a.cardFlex }};min-width:0;border-radius:24px;padding:8px;background:#fff;border:1px solid rgba(6,78,42,.08);display:flex;flex-direction:column;cursor:pointer;box-shadow:{{ a.cardShadow }};transition:flex .55s cubic-bezier(.2,.7,.2,1),box-shadow .3s ease">
+        <div style="flex:1;border-radius:18px;padding:24px 22px;background:{{ a.panelBg }};display:flex;flex-direction:column;gap:14px;min-height:380px;transition:background .4s ease">
+          <span aria-hidden="true" style="width:46px;height:46px;border-radius:99px;background:#fff;color:#073D26;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:22px;box-shadow:{{ a.iconShadow }}">{{ a.icon }}</span>
+          <h3 style="margin:auto 0 0;font-size:clamp(22px,2vw,26px);font-weight:500;letter-spacing:-.025em;color:{{ a.titleColor }}">{{ a.name }}</h3>
+          <p style="margin:0;font-size:15px;line-height:1.55;color:{{ a.mutedColor }};text-wrap:pretty">{{ a.desc }}</p>
+          <ul style="margin:6px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ a.uses }}" as="u" hint-placeholder-count="4">
+              <li style="display:flex;align-items:center;gap:10px;font-size:14.5px;color:{{ u.text }}"><span aria-hidden="true" style="width:7px;height:7px;transform:rotate(45deg);background:{{ u.color }};flex-shrink:0"></span>{{ u.label }}</li>
+            </sc-for>
+          </ul>
+        </div>
+        <div style="display:flex;justify-content:flex-end;padding:14px 14px 8px">
+          <a href="#request" style="display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:500;color:#111827" style-hover="color:#0A5C36">Learn more <span aria-hidden="true" style="font-family:'Material Symbols Rounded';font-size:17px">arrow_forward</span></a>
+        </div>
+      </article>
+    </sc-for>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" aria-labelledby="feat-title" style="max-width:1240px;margin:0 auto;padding:clamp(96px,12vw,152px) clamp(20px,4vw,32px) 0">
+  <div data-reveal="" style="text-align:center;max-width:720px;margin:0 auto">
+    <div style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border-radius:999px;background:#fff;border:1px solid rgba(17,24,39,.07);box-shadow:0 1px 2px rgba(16,24,40,.04);font-size:13px;font-weight:500;color:#1F2937"><span aria-hidden="true" style="width:22px;height:22px;border-radius:99px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:13px">auto_awesome</span>Product</div>
+    <h2 id="feat-title" style="margin:12px 0 0;font-size:clamp(32px,4.4vw,52px);line-height:1.06;font-weight:600;letter-spacing:-.035em;color:#111827;text-wrap:balance">Powerful features for real university work</h2>
+    <p style="margin:18px auto 0;max-width:540px;font-size:17px;line-height:1.6;color:#667085;text-wrap:pretty">Assistance, documents, research, knowledge, data and workflows in one workspace.</p>
+  </div>
+  <div style="margin-top:56px;display:flex;flex-wrap:wrap;gap:16px">
+    <!-- F1 -->
+    <article data-reveal="" style="flex:1 1 380px;min-width:0;border-radius:24px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:8px;transition:all .3s ease" style-hover="transform:translateY(-4px);box-shadow:0 24px 48px -24px rgba(6,40,24,.2)">
+      <div aria-hidden="true" style="height:320px;border-radius:18px;background:#EEF3EE;padding:24px 24px 0;overflow:hidden;display:flex;justify-content:center">
+        <div style="width:100%;max-width:400px;background:#fff;border:1px solid #E6ECE7;border-bottom:none;border-radius:14px 14px 0 0;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 12px 32px -12px rgba(6,40,24,.15)">
+          <div style="align-self:flex-end;max-width:88%;padding:9px 12px;border-radius:12px 12px 4px 12px;background:#F2F4F7;font-size:12px;line-height:1.45;color:#1F2937">What is the deadline to request a thesis extension?</div>
+          <div style="display:flex;gap:10px">
+            <span style="width:26px;height:26px;border-radius:8px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:15px;flex-shrink:0">auto_awesome</span>
+            <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+              <p style="margin:0;font-size:12px;line-height:1.55;color:#344054">Requests must be submitted to the faculty secretariat at least <b style="font-weight:600;color:#111827">30 days before</b> the original defense date, with the supervisor's written approval.</p>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:#0A5C36;padding:4px 8px;border-radius:7px;background:#EEF8E2;border:1px solid #DCEFC6"><span style="font-family:'Material Symbols Rounded';font-size:13px">description</span>Academic Regulations §4.2</span>
+                <span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:#0A5C36;padding:4px 8px;border-radius:7px;background:#EEF8E2;border:1px solid #DCEFC6"><span style="font-family:'Material Symbols Rounded';font-size:13px">description</span>Doctoral School Procedures</span>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:auto;display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:10px;border:1px solid #E4E7EC;font-size:11.5px;color:#98A2B3">Ask a follow-up…<span style="margin-left:auto;width:24px;height:24px;border-radius:99px;background:#0A5C36;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:15px">arrow_upward</span></div>
+        </div>
+      </div>
+      <div style="padding:22px 18px 18px">
+        <h3 style="margin:0;font-size:19px;font-weight:600;letter-spacing:-.02em;color:#111827">Institutional AI Assistant</h3>
+        <p style="margin:8px 0 0;font-size:15px;line-height:1.6;color:#667085">Ask questions across connected university information and documents.</p>
+      </div>
+    </article>
+    <!-- F2 -->
+    <article data-reveal="" style="flex:1.45 1 480px;min-width:0;border-radius:24px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:8px;transition:all .3s ease" style-hover="transform:translateY(-4px);box-shadow:0 24px 48px -24px rgba(6,40,24,.2)">
+      <div aria-hidden="true" style="height:320px;border-radius:18px;background:#EEF3EE;padding:24px 24px 0;overflow:hidden;display:flex;gap:12px">
+        <div style="flex:1;min-width:0;background:#fff;border:1px solid #E6ECE7;border-bottom:none;border-radius:12px 12px 0 0;padding:18px;display:flex;flex-direction:column;gap:7px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-family:'Geist Mono',monospace;font-size:9px;padding:3px 5px;border-radius:5px;background:#FDECEC;color:#B42318">PDF</span><span style="font-size:11px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Research_grant_agreement.pdf</span></div>
+          <span style="height:7px;width:60%;border-radius:9px;background:#D7DDD8"></span>
+          <span style="height:5px;width:100%;border-radius:9px;background:#EDF0ED"></span><span style="height:5px;width:94%;border-radius:9px;background:#EDF0ED"></span>
+          <span style="height:5px;width:98%;border-radius:9px;background:rgba(185,245,106,.55)"></span><span style="height:5px;width:70%;border-radius:9px;background:rgba(185,245,106,.55)"></span>
+          <span style="height:5px;width:100%;border-radius:9px;background:#EDF0ED"></span><span style="height:5px;width:88%;border-radius:9px;background:#EDF0ED"></span><span style="height:5px;width:92%;border-radius:9px;background:#EDF0ED"></span>
+          <span style="height:5px;width:96%;border-radius:9px;background:rgba(185,245,106,.55)"></span>
+          <span style="height:5px;width:100%;border-radius:9px;background:#EDF0ED"></span><span style="height:5px;width:62%;border-radius:9px;background:#EDF0ED"></span>
+        </div>
+        <div style="width:min(52%,260px);flex-shrink:0;display:flex;flex-direction:column;gap:10px">
+          <div style="background:#fff;border:1px solid #E6ECE7;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:11px;font-weight:600;color:#111827;display:flex;align-items:center;gap:5px"><span style="font-family:'Material Symbols Rounded';font-size:14px;color:#0A5C36">summarize</span>Summary</span>
+            <span style="font-size:10.5px;line-height:1.5;color:#475467">Three-year agreement funding field research, with annual reporting to the funding committee.</span>
+          </div>
+          <div style="background:#fff;border:1px solid #E6ECE7;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:2px">
+            <span style="font-size:11px;font-weight:600;color:#111827;display:flex;align-items:center;gap:5px;margin-bottom:4px"><span style="font-family:'Material Symbols Rounded';font-size:14px;color:#0A5C36">table_chart</span>Extracted fields</span>
+            <div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid #F2F4F7;font-size:10.5px"><span style="color:#98A2B3">Duration</span><span style="color:#1F2937;font-weight:500">36 months</span></div>
+            <div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid #F2F4F7;font-size:10.5px"><span style="color:#98A2B3">Start date</span><span style="color:#1F2937;font-weight:500">01 Feb 2027</span></div>
+            <div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid #F2F4F7;font-size:10.5px"><span style="color:#98A2B3">Reporting</span><span style="color:#1F2937;font-weight:500">Annual</span></div>
+            <div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid #F2F4F7;font-size:10.5px"><span style="color:#98A2B3">Lead faculty</span><span style="color:#1F2937;font-weight:500">Sciences</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:22px 18px 18px">
+        <h3 style="margin:0;font-size:19px;font-weight:600;letter-spacing:-.02em;color:#111827">Document Intelligence</h3>
+        <p style="margin:8px 0 0;font-size:15px;line-height:1.6;color:#667085">Upload PDFs, Word documents and institutional files to summarize, analyze and extract information.</p>
+      </div>
+    </article>
+    <!-- F3 -->
+    <article data-reveal="" style="flex:1.45 1 480px;min-width:0;border-radius:24px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:8px;transition:all .3s ease" style-hover="transform:translateY(-4px);box-shadow:0 24px 48px -24px rgba(6,40,24,.2)">
+      <div aria-hidden="true" style="height:320px;border-radius:18px;background:#EEF3EE;padding:24px 24px 0;overflow:hidden">
+        <div style="height:100%;background:#fff;border:1px solid #E6ECE7;border-bottom:none;border-radius:12px 12px 0 0;display:flex;overflow:hidden">
+          <div style="width:38%;min-width:0;border-right:1px solid #EEF1EE;padding:14px;display:flex;flex-direction:column;gap:6px;background:#FBFCFB">
+            <span style="font-size:10px;font-weight:600;color:#98A2B3;letter-spacing:.04em">SOURCES</span>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;background:#EEF8E2;font-size:10.5px;color:#073D26;font-weight:500"><span style="font-family:'Material Symbols Rounded';font-size:13px">article</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Blue carbon in Madagascar</span></div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:10.5px;color:#475467"><span style="font-family:'Material Symbols Rounded';font-size:13px;color:#98A2B3">article</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sediment cores, 2019–2024</span></div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:10.5px;color:#475467"><span style="font-family:'Material Symbols Rounded';font-size:13px;color:#98A2B3">table</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Field measurements.xlsx</span></div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:10.5px;color:#475467"><span style="font-family:'Material Symbols Rounded';font-size:13px;color:#98A2B3">link</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Remote sensing dataset</span></div>
+            <span style="margin-top:8px;font-size:10px;font-weight:600;color:#98A2B3;letter-spacing:.04em">NOTES</span>
+            <span style="height:5px;width:90%;border-radius:9px;background:#EDF0ED"></span><span style="height:5px;width:70%;border-radius:9px;background:#EDF0ED"></span>
+          </div>
+          <div style="flex:1;min-width:0;padding:14px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font-size:12px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Mangrove ecosystems</span><span style="display:flex"><span style="width:20px;height:20px;border-radius:99px;background:#0A5C36;border:2px solid #fff"></span><span style="width:20px;height:20px;border-radius:99px;background:#7CC35A;border:2px solid #fff;margin-left:-6px"></span><span style="width:20px;height:20px;border-radius:99px;background:#B9F56A;border:2px solid #fff;margin-left:-6px"></span></span></div>
+            <div style="align-self:flex-end;max-width:85%;padding:8px 10px;border-radius:10px 10px 3px 10px;background:#F2F4F7;font-size:11px;line-height:1.45;color:#1F2937">Compare methods used across these sources</div>
+            <div style="padding:10px;border-radius:10px;border:1px solid #E6ECE7;display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:10.5px;font-weight:600;color:#111827">Methods comparison</span>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:9.5px">
+                <span style="color:#98A2B3">Source</span><span style="color:#98A2B3">Method</span><span style="color:#98A2B3">Sample</span>
+                <span style="color:#344054">[1]</span><span style="color:#344054">Core sampling</span><span style="color:#344054">48 sites</span>
+                <span style="color:#344054">[2]</span><span style="color:#344054">Remote sensing</span><span style="color:#344054">Regional</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:22px 18px 18px">
+        <h3 style="margin:0;font-size:19px;font-weight:600;letter-spacing:-.02em;color:#111827">AI Research Workspace</h3>
+        <p style="margin:8px 0 0;font-size:15px;line-height:1.6;color:#667085">Organize research conversations, documents, sources and AI assistance.</p>
+      </div>
+    </article>
+    <!-- F4 -->
+    <article data-reveal="" style="flex:1 1 380px;min-width:0;border-radius:24px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:8px;transition:all .3s ease" style-hover="transform:translateY(-4px);box-shadow:0 24px 48px -24px rgba(6,40,24,.2)">
+      <div aria-hidden="true" style="height:320px;border-radius:18px;background:#EEF3EE;padding:24px 24px 0;overflow:hidden;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px;padding:11px 12px;border-radius:12px;background:#fff;border:1px solid #E6ECE7;box-shadow:0 8px 20px -10px rgba(6,40,24,.15);font-size:12px;color:#1F2937"><span style="font-family:'Material Symbols Rounded';font-size:17px;color:#0A5C36">search</span>course registration two faculties</div>
+        <div style="padding:12px;border-radius:12px;background:#fff;border:1px solid #E6ECE7;display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9.5px;font-weight:600;color:#4559C9;padding:2px 6px;border-radius:5px;background:#EEF2FF">Regulation</span><span style="font-size:11.5px;font-weight:600;color:#111827">General study regulations · Art. 12</span></div>
+          <span style="font-size:10.5px;line-height:1.5;color:#667085">A student may enroll in courses offered by <span style="background:rgba(185,245,106,.5);color:#1F2937;padding:0 2px;border-radius:3px">two faculties</span> with approval from both deans…</span>
+        </div>
+        <div style="padding:12px;border-radius:12px;background:#fff;border:1px solid #E6ECE7;display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9.5px;font-weight:600;color:#B5651D;padding:2px 6px;border-radius:5px;background:#FFF4E5">Procedure</span><span style="font-size:11.5px;font-weight:600;color:#111827">Registrar · Dual enrollment form</span></div>
+          <span style="font-size:10.5px;line-height:1.5;color:#667085">Submit the completed form to the registrar before the end of week two…</span>
+        </div>
+        <div style="padding:12px;border-radius:12px;background:#fff;border:1px solid #E6ECE7;display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9.5px;font-weight:600;color:#0A5C36;padding:2px 6px;border-radius:5px;background:#EEF8E2">Guide</span><span style="font-size:11.5px;font-weight:600;color:#111827">Student handbook · Section 3</span></div>
+        </div>
+      </div>
+      <div style="padding:22px 18px 18px">
+        <h3 style="margin:0;font-size:19px;font-weight:600;letter-spacing:-.02em;color:#111827">University Knowledge Search</h3>
+        <p style="margin:8px 0 0;font-size:15px;line-height:1.6;color:#667085">Find information from regulations, procedures, administrative documents and academic resources.</p>
+      </div>
+    </article>
+    <!-- F5 -->
+    <article data-reveal="" style="flex:1 1 380px;min-width:0;border-radius:24px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:8px;transition:all .3s ease" style-hover="transform:translateY(-4px);box-shadow:0 24px 48px -24px rgba(6,40,24,.2)">
+      <div aria-hidden="true" style="height:320px;border-radius:18px;background:#EEF3EE;padding:24px 24px 0;overflow:hidden">
+        <div style="height:100%;background:#fff;border:1px solid #E6ECE7;border-bottom:none;border-radius:12px 12px 0 0;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:12px;font-weight:600;color:#111827">Enrollment by faculty</span><span style="display:flex;gap:4px"><span style="font-size:10px;padding:3px 7px;border-radius:6px;background:#073D26;color:#fff">2026</span><span style="font-size:10px;padding:3px 7px;border-radius:6px;background:#F2F4F7;color:#667085">2025</span></span></div>
+          <div style="height:120px;display:flex;align-items:flex-end;gap:10px;padding-bottom:6px;border-bottom:1px solid #EEF1EE">
+            <span style="flex:1;display:flex;align-items:flex-end;gap:3px;height:100%"><span style="flex:1;height:58%;border-radius:4px 4px 0 0;background:#DCEFC6"></span><span style="flex:1;height:72%;border-radius:4px 4px 0 0;background:#0A5C36"></span></span>
+            <span style="flex:1;display:flex;align-items:flex-end;gap:3px;height:100%"><span style="flex:1;height:80%;border-radius:4px 4px 0 0;background:#DCEFC6"></span><span style="flex:1;height:94%;border-radius:4px 4px 0 0;background:#0A5C36"></span></span>
+            <span style="flex:1;display:flex;align-items:flex-end;gap:3px;height:100%"><span style="flex:1;height:40%;border-radius:4px 4px 0 0;background:#DCEFC6"></span><span style="flex:1;height:46%;border-radius:4px 4px 0 0;background:#0A5C36"></span></span>
+            <span style="flex:1;display:flex;align-items:flex-end;gap:3px;height:100%"><span style="flex:1;height:52%;border-radius:4px 4px 0 0;background:#DCEFC6"></span><span style="flex:1;height:66%;border-radius:4px 4px 0 0;background:#0A5C36"></span></span>
+          </div>
+          <div style="display:flex;gap:8px;padding:10px;border-radius:10px;background:#F1F7EC">
+            <span style="font-family:'Material Symbols Rounded';font-size:16px;color:#0A5C36">auto_awesome</span>
+            <span style="font-size:10.5px;line-height:1.5;color:#344054">Enrollment grew in all four faculties. Sciences shows the largest increase. <b style="font-weight:600;color:#073D26">Add to report →</b></span>
+          </div>
+        </div>
+      </div>
+      <div style="padding:22px 18px 18px">
+        <h3 style="margin:0;font-size:19px;font-weight:600;letter-spacing:-.02em;color:#111827">Data &amp; Reporting</h3>
+        <p style="margin:8px 0 0;font-size:15px;line-height:1.6;color:#667085">Use AI to help understand institutional data and prepare reports.</p>
+      </div>
+    </article>
+    <!-- F6 -->
+    <article data-reveal="" style="flex:1.45 1 480px;min-width:0;border-radius:24px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:8px;transition:all .3s ease" style-hover="transform:translateY(-4px);box-shadow:0 24px 48px -24px rgba(6,40,24,.2)">
+      <div aria-hidden="true" style="height:320px;border-radius:18px;background:#073D26;padding:28px 24px;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:10px">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)"><span style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.1);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:16px">inbox</span><span style="flex:1;min-width:0;font-size:12px;color:#fff">Transcript request received</span><span style="font-size:10px;color:#B9F56A;font-weight:500">Done</span></div>
+        <div style="margin-left:27px;width:1px;height:10px;background:rgba(255,255,255,.2)"></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)"><span style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.1);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:16px">data_object</span><span style="flex:1;min-width:0;font-size:12px;color:#fff">Extract student ID, program, year</span><span style="font-size:10px;color:#B9F56A;font-weight:500">Done</span></div>
+        <div style="margin-left:27px;width:1px;height:10px;background:rgba(255,255,255,.2)"></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:#B9F56A"><span style="width:28px;height:28px;border-radius:8px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:16px">alt_route</span><span style="flex:1;min-width:0;font-size:12px;color:#06301C;font-weight:600">Route to Registrar · Faculty of Sciences</span><span style="font-size:10px;color:#06301C;font-weight:600">Running</span></div>
+        <div style="margin-left:27px;width:1px;height:10px;background:rgba(255,255,255,.2)"></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px dashed rgba(255,255,255,.2)"><span style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:16px">edit_note</span><span style="flex:1;min-width:0;font-size:12px;color:rgba(255,255,255,.6)">Draft response for staff review</span></div>
+      </div>
+      <div style="padding:22px 18px 18px">
+        <h3 style="margin:0;font-size:19px;font-weight:600;letter-spacing:-.02em;color:#111827">Workflow Automation</h3>
+        <p style="margin:8px 0 0;font-size:15px;line-height:1.6;color:#667085">Assist administrative and academic workflows using AI.</p>
+      </div>
+    </article>
+  </div>
+</section>
+<!-- AI PLATFORM -->
+<section id="platform" aria-labelledby="plat-title" style="padding:clamp(96px,12vw,152px) 12px 0">
+  <div style="position:relative;background:#073D26;border-radius:28px;overflow:hidden;padding:clamp(64px,9vw,112px) clamp(20px,4vw,32px)">
+    <div aria-hidden="true" style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:64px 64px;mask-image:radial-gradient(60% 60% at 50% 50%,#000,transparent);-webkit-mask-image:radial-gradient(60% 60% at 50% 50%,#000,transparent)"></div>
+    <div style="position:relative;max-width:1100px;margin:0 auto;display:flex;flex-direction:column;align-items:center;text-align:center">
+      <div data-reveal="" style="max-width:720px">
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);font-size:13px;font-weight:500;color:#fff"><span aria-hidden="true" style="width:22px;height:22px;border-radius:99px;background:#B9F56A;color:#06301C;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:13px">auto_awesome</span>The platform</div>
+        <h2 id="plat-title" style="margin:12px 0 0;font-size:clamp(32px,4.6vw,56px);line-height:1.04;font-weight:600;letter-spacing:-.035em;color:#fff;text-wrap:balance">AI that understands university work.</h2>
+        <p style="margin:20px auto 0;max-width:560px;font-size:17px;line-height:1.6;color:rgba(255,255,255,.7);text-wrap:pretty">The platform combines conversational AI, university knowledge and connected workflows into one accessible environment.</p>
+      </div>
+      <div data-reveal="" style="margin-top:64px;width:100%;display:flex;flex-direction:column;align-items:center">
+        <div style="font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.08em;color:rgba(255,255,255,.5)">SOURCES</div>
+        <div style="margin-top:14px;display:flex;flex-wrap:wrap;justify-content:center;gap:10px">
+          <span style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:14px;font-weight:500"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#B9F56A">account_balance</span>University Knowledge</span>
+          <span style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:14px;font-weight:500"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#B9F56A">description</span>Documents</span>
+          <span style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:14px;font-weight:500"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#B9F56A">biotech</span>Research</span>
+          <span style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:14px;font-weight:500"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#B9F56A">dataset</span>Data</span>
+          <span style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:14px;font-weight:500"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#B9F56A">rule</span>Procedures</span>
+        </div>
+        <div aria-hidden="true" style="width:1px;height:48px;background:linear-gradient(rgba(255,255,255,.05),rgba(185,245,106,.7))"></div>
+        <span aria-hidden="true" style="margin-top:-8px;font-family:'Material Symbols Rounded';font-size:20px;color:#B9F56A">keyboard_arrow_down</span>
+        <div style="margin-top:4px;width:100%;max-width:560px;padding:8px;border-radius:24px;background:rgba(185,245,106,.08);border:1px solid rgba(185,245,106,.25)">
+          <div style="padding:22px;border-radius:18px;background:#fff;text-align:left">
+            <div style="display:flex;align-items:center;gap:12px">
+              <img src="assets/univa-icon.png" alt="UNUVIA logo" width="40" height="40" style="width:40px;height:40px;border-radius:10px">
+              <div><div style="font-size:17px;font-weight:600;letter-spacing:-.02em;color:#111827">UNUVIA AI Platform</div><div style="font-size:13px;color:#667085">One environment for the whole institution</div></div>
+            </div>
+            <div style="margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
+              <div style="padding:12px;border-radius:12px;background:#F5F8F5;border:1px solid #E6ECE7"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#0A5C36">neurology</span><div style="margin-top:6px;font-size:13px;font-weight:600;color:#111827">AI models</div><div style="font-size:12px;color:#667085">Claude by Anthropic</div></div>
+              <div style="padding:12px;border-radius:12px;background:#F5F8F5;border:1px solid #E6ECE7"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#0A5C36">manage_search</span><div style="margin-top:6px;font-size:13px;font-weight:600;color:#111827">Retrieval</div><div style="font-size:12px;color:#667085">Authorized sources</div></div>
+              <div style="padding:12px;border-radius:12px;background:#F5F8F5;border:1px solid #E6ECE7"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#0A5C36">shield_person</span><div style="margin-top:6px;font-size:13px;font-weight:600;color:#111827">Access control</div><div style="font-size:12px;color:#667085">Roles &amp; permissions</div></div>
+            </div>
+          </div>
+        </div>
+        <div aria-hidden="true" style="width:1px;height:48px;background:linear-gradient(rgba(185,245,106,.7),rgba(255,255,255,.05))"></div>
+        <span aria-hidden="true" style="margin-top:-8px;font-family:'Material Symbols Rounded';font-size:20px;color:#B9F56A">keyboard_arrow_down</span>
+        <div style="margin-top:6px;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.08em;color:rgba(255,255,255,.5)">CAPABILITIES</div>
+        <div style="margin-top:14px;display:flex;flex-wrap:wrap;justify-content:center;gap:10px;max-width:760px">
+          <span style="padding:10px 18px;border-radius:999px;background:#B9F56A;color:#06301C;font-size:14px;font-weight:600">Search</span>
+          <span style="padding:10px 18px;border-radius:999px;background:#B9F56A;color:#06301C;font-size:14px;font-weight:600">Ask</span>
+          <span style="padding:10px 18px;border-radius:999px;background:#B9F56A;color:#06301C;font-size:14px;font-weight:600">Summarize</span>
+          <span style="padding:10px 18px;border-radius:999px;background:#B9F56A;color:#06301C;font-size:14px;font-weight:600">Extract</span>
+          <span style="padding:10px 18px;border-radius:999px;background:#B9F56A;color:#06301C;font-size:14px;font-weight:600">Analyze</span>
+          <span style="padding:10px 18px;border-radius:999px;background:#B9F56A;color:#06301C;font-size:14px;font-weight:600">Generate</span>
+          <span style="padding:10px 18px;border-radius:999px;background:#B9F56A;color:#06301C;font-size:14px;font-weight:600">Automate</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MODELS -->
+<section id="models" aria-labelledby="models-title" style="max-width:1240px;margin:0 auto;padding:clamp(96px,12vw,152px) clamp(20px,4vw,32px) 0">
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:clamp(40px,6vw,80px)">
+    <div data-reveal="" style="flex:1 1 360px;min-width:0">
+      <div style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border-radius:999px;background:#fff;border:1px solid rgba(17,24,39,.07);box-shadow:0 1px 2px rgba(16,24,40,.04);font-size:13px;font-weight:500;color:#1F2937"><span aria-hidden="true" style="width:22px;height:22px;border-radius:99px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:13px">auto_awesome</span>AI models</div>
+      <h2 id="models-title" style="margin:12px 0 0;font-size:clamp(32px,4.4vw,52px);line-height:1.06;font-weight:600;letter-spacing:-.035em;color:#111827;text-wrap:balance">Powered by leading AI models</h2>
+      <p style="margin:20px 0 0;max-width:500px;font-size:17px;line-height:1.6;color:#667085;text-wrap:pretty">UNUVIA integrates Claude by Anthropic to power document understanding, contextual assistance and intelligent workflows.</p>
+      <p style="margin:14px 0 0;max-width:500px;font-size:17px;line-height:1.6;color:#667085;text-wrap:pretty">The architecture is model-agnostic, so institutions can configure additional AI providers and models as their needs evolve.</p>
+    </div>
+    <div data-reveal="" style="flex:1 1 440px;min-width:0">
+      <div style="border-radius:24px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:8px;box-shadow:0 24px 48px -32px rgba(6,40,24,.25)">
+        <div style="padding:16px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <span style="font-size:14px;font-weight:600;color:#111827">Model configuration</span>
+          <span style="font-size:12px;color:#667085">Administration</span>
+        </div>
+        <div style="border-radius:16px;background:#F5F8F5;padding:8px;display:flex;flex-direction:column;gap:8px">
+          <div style="background:#fff;border:1px solid #E6ECE7;border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px">
+            <span style="width:40px;height:40px;border-radius:11px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:22px;flex-shrink:0">neurology</span>
+            <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:600;color:#111827">Claude by Anthropic</div><div style="font-size:13px;color:#667085">Documents · Assistance · Workflows</div></div>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#0A5C36;padding:5px 10px;border-radius:99px;background:#EEF8E2;white-space:nowrap"><span style="width:6px;height:6px;border-radius:9px;background:#3BA55C"></span>Integrated</span>
+          </div>
+          <div style="background:#fff;border:1px solid #E6ECE7;border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px">
+            <span style="width:40px;height:40px;border-radius:11px;background:#F2F4F7;color:#667085;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:22px;flex-shrink:0">add</span>
+            <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:600;color:#111827">Additional providers</div><div style="font-size:13px;color:#667085">Configured per institution</div></div>
+            <span style="font-size:12px;font-weight:500;color:#475467;padding:5px 10px;border-radius:99px;border:1px solid #E4E7EC;white-space:nowrap">Configurable</span>
+          </div>
+          <div style="padding:10px 12px 6px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#344054"><span style="font-family:'Material Symbols Rounded';font-size:17px;color:#0A5C36">check_circle</span>Default model per role</div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#344054"><span style="font-family:'Material Symbols Rounded';font-size:17px;color:#0A5C36">check_circle</span>Usage limits per group</div>
+          </div>
+        </div>
+      </div>
+      <p style="margin:14px 4px 0;font-size:12px;line-height:1.5;color:#98A2B3">Claude is a product of Anthropic. UNUVIA is an independent platform that uses Claude through Anthropic's API.</p>
+    </div>
+  </div>
+</section>
+
+<!-- KNOWLEDGE -->
+<section id="knowledge" aria-labelledby="know-title" style="max-width:1240px;margin:0 auto;padding:clamp(96px,12vw,152px) clamp(20px,4vw,32px) 0">
+  <div data-reveal="" style="text-align:center;max-width:760px;margin:0 auto">
+    <div style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border-radius:999px;background:#fff;border:1px solid rgba(17,24,39,.07);box-shadow:0 1px 2px rgba(16,24,40,.04);font-size:13px;font-weight:500;color:#1F2937"><span aria-hidden="true" style="width:22px;height:22px;border-radius:99px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:13px">auto_awesome</span>Institutional knowledge</div>
+    <h2 id="know-title" style="margin:12px 0 0;font-size:clamp(32px,4.4vw,52px);line-height:1.06;font-weight:600;letter-spacing:-.035em;color:#111827;text-wrap:balance">Turn university knowledge into accessible intelligence.</h2>
+    <p style="margin:18px auto 0;max-width:560px;font-size:17px;line-height:1.6;color:#667085;text-wrap:pretty">Ask natural-language questions and get contextual answers from authorized university information.</p>
+  </div>
+  <div data-reveal="" style="margin-top:56px;border-radius:28px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:clamp(12px,2vw,20px);display:flex;flex-wrap:wrap;align-items:stretch;gap:clamp(12px,2vw,20px)">
+    <div style="flex:1 1 320px;min-width:0;padding:clamp(12px,2vw,20px);display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:13px;font-weight:600;color:#111827">Connected sources</span><span style="font-size:12px;color:#667085">7 collections</span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;border:1px solid #EEF1EE;background:#FBFCFB"><span style="width:30px;height:30px;border-radius:8px;background:#EEF8E2;color:#0A5C36;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:17px">policy</span><span style="flex:1;font-size:14px;font-weight:500;color:#1F2937">Policies</span><span style="font-size:11px;color:#0A5C36;font-weight:500">Synced</span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;border:1px solid #EEF1EE;background:#FBFCFB"><span style="width:30px;height:30px;border-radius:8px;background:#EEF8E2;color:#0A5C36;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:17px">gavel</span><span style="flex:1;font-size:14px;font-weight:500;color:#1F2937">Academic regulations</span><span style="font-size:11px;color:#0A5C36;font-weight:500">Synced</span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;border:1px solid #EEF1EE;background:#FBFCFB"><span style="width:30px;height:30px;border-radius:8px;background:#EEF8E2;color:#0A5C36;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:17px">rule</span><span style="flex:1;font-size:14px;font-weight:500;color:#1F2937">Administrative procedures</span><span style="font-size:11px;color:#0A5C36;font-weight:500">Synced</span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;border:1px solid #EEF1EE;background:#FBFCFB"><span style="width:30px;height:30px;border-radius:8px;background:#EEF8E2;color:#0A5C36;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:17px">science</span><span style="flex:1;font-size:14px;font-weight:500;color:#1F2937">Research documents</span><span style="font-size:11px;color:#0A5C36;font-weight:500">Synced</span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;border:1px solid #EEF1EE;background:#FBFCFB"><span style="width:30px;height:30px;border-radius:8px;background:#EEF8E2;color:#0A5C36;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:17px">school</span><span style="flex:1;font-size:14px;font-weight:500;color:#1F2937">Student resources</span><span style="font-size:11px;color:#0A5C36;font-weight:500">Synced</span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;border:1px solid #EEF1EE;background:#FBFCFB"><span style="width:30px;height:30px;border-radius:8px;background:#EEF8E2;color:#0A5C36;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:17px">inventory_2</span><span style="flex:1;font-size:14px;font-weight:500;color:#1F2937">Institutional archives</span><span style="font-size:11px;color:#667085;font-weight:500">Indexing</span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;border:1px solid #EEF1EE;background:#FBFCFB"><span style="width:30px;height:30px;border-radius:8px;background:#EEF8E2;color:#0A5C36;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:17px">checklist</span><span style="flex:1;font-size:14px;font-weight:500;color:#1F2937">Guidelines</span><span style="font-size:11px;color:#0A5C36;font-weight:500">Synced</span></div>
+    </div>
+    <div style="flex:1.2 1 400px;min-width:0;border-radius:20px;background:#073D26;padding:clamp(20px,3vw,36px);display:flex;flex-direction:column;justify-content:center;gap:16px">
+      <div style="align-self:flex-end;max-width:88%;padding:12px 16px;border-radius:16px 16px 4px 16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:15px;line-height:1.5">Can a master's student take courses in two faculties in the same semester?</div>
+      <div style="padding:20px;border-radius:16px;background:#fff;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:28px;height:28px;border-radius:8px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:16px">auto_awesome</span><span style="font-size:13px;font-weight:600;color:#111827">UNUVIA</span><span style="margin-left:auto;font-size:11px;color:#667085">3 sources</span></div>
+        <p style="margin:0;font-size:15px;line-height:1.6;color:#344054">Yes. Under the general study regulations, a student may enroll in courses from a second faculty with written approval from both deans. The request goes to the registrar before the end of the second week of the semester.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#0A5C36;padding:5px 10px;border-radius:8px;background:#EEF8E2;border:1px solid #DCEFC6"><span style="font-family:'Geist Mono',monospace;font-size:10px">1</span>Study regulations · Art. 12</span>
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#0A5C36;padding:5px 10px;border-radius:8px;background:#EEF8E2;border:1px solid #DCEFC6"><span style="font-family:'Geist Mono',monospace;font-size:10px">2</span>Registrar procedure</span>
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#0A5C36;padding:5px 10px;border-radius:8px;background:#EEF8E2;border:1px solid #DCEFC6"><span style="font-family:'Geist Mono',monospace;font-size:10px">3</span>Student handbook</span>
+        </div>
+        <div style="padding-top:12px;border-top:1px solid #F2F4F7;display:flex;align-items:center;gap:6px;font-size:12px;color:#667085"><span style="font-family:'Material Symbols Rounded';font-size:15px;color:#0A5C36">lock</span>Answer drawn only from sources this user is authorized to view</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ADMINISTRATION -->
+<section id="administration" aria-labelledby="admin-title" style="max-width:1240px;margin:0 auto;padding:clamp(96px,12vw,152px) clamp(20px,4vw,32px) 0">
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:clamp(40px,5vw,64px)">
+    <div data-reveal="" style="flex:1 1 340px;min-width:0">
+      <div style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border-radius:999px;background:#fff;border:1px solid rgba(17,24,39,.07);box-shadow:0 1px 2px rgba(16,24,40,.04);font-size:13px;font-weight:500;color:#1F2937"><span aria-hidden="true" style="width:22px;height:22px;border-radius:99px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:13px">auto_awesome</span>For universities</div>
+      <h2 id="admin-title" style="margin:12px 0 0;font-size:clamp(32px,4.4vw,52px);line-height:1.06;font-weight:600;letter-spacing:-.035em;color:#111827;text-wrap:balance">Centralized AI governance for universities.</h2>
+      <p style="margin:20px 0 0;max-width:460px;font-size:17px;line-height:1.6;color:#667085">IT and administration teams manage who uses AI, with which knowledge, and how.</p>
+      <ul style="margin:32px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px 20px">
+        <li style="display:flex;align-items:center;gap:10px;font-size:15px;color:#1F2937"><span style="font-family:'Material Symbols Rounded';font-size:19px;color:#0A5C36">group</span>User management</li>
+        <li style="display:flex;align-items:center;gap:10px;font-size:15px;color:#1F2937"><span style="font-family:'Material Symbols Rounded';font-size:19px;color:#0A5C36">shield_person</span>Roles and permissions</li>
+        <li style="display:flex;align-items:center;gap:10px;font-size:15px;color:#1F2937"><span style="font-family:'Material Symbols Rounded';font-size:19px;color:#0A5C36">monitoring</span>AI usage monitoring</li>
+        <li style="display:flex;align-items:center;gap:10px;font-size:15px;color:#1F2937"><span style="font-family:'Material Symbols Rounded';font-size:19px;color:#0A5C36">key</span>Access control</li>
+        <li style="display:flex;align-items:center;gap:10px;font-size:15px;color:#1F2937"><span style="font-family:'Material Symbols Rounded';font-size:19px;color:#0A5C36">workspaces</span>Department workspaces</li>
+        <li style="display:flex;align-items:center;gap:10px;font-size:15px;color:#1F2937"><span style="font-family:'Material Symbols Rounded';font-size:19px;color:#0A5C36">query_stats</span>Usage analytics</li>
+        <li style="display:flex;align-items:center;gap:10px;font-size:15px;color:#1F2937"><span style="font-family:'Material Symbols Rounded';font-size:19px;color:#0A5C36">library_books</span>Knowledge sources</li>
+        <li style="display:flex;align-items:center;gap:10px;font-size:15px;color:#1F2937"><span style="font-family:'Material Symbols Rounded';font-size:19px;color:#0A5C36">tune</span>Model configuration</li>
+      </ul>
+    </div>
+    <div data-reveal="" style="flex:1.6 1 520px;min-width:0">
+      <div aria-hidden="true" style="border-radius:24px;background:#EEF3EE;padding:clamp(10px,2vw,20px)">
+        <div style="background:#fff;border:1px solid #E6ECE7;border-radius:16px;overflow:hidden;box-shadow:0 24px 48px -28px rgba(6,40,24,.25)">
+          <div style="display:flex;align-items:center;gap:6px;padding:12px 16px;border-bottom:1px solid #EEF1EE;overflow:hidden">
+            <span style="font-size:13px;font-weight:600;color:#111827;margin-right:12px;white-space:nowrap">Administration</span>
+            <span style="font-size:12px;font-weight:500;color:#073D26;padding:5px 10px;border-radius:7px;background:#EEF8E2;white-space:nowrap">Overview</span>
+            <span style="font-size:12px;color:#667085;padding:5px 10px;white-space:nowrap">Users</span>
+            <span style="font-size:12px;color:#667085;padding:5px 10px;white-space:nowrap">Roles</span>
+            <span style="font-size:12px;color:#667085;padding:5px 10px;white-space:nowrap">Sources</span>
+            <span style="font-size:12px;color:#667085;padding:5px 10px;white-space:nowrap">Models</span>
+          </div>
+          <div style="padding:16px;display:flex;flex-direction:column;gap:12px;background:#FBFCFB">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
+              <div style="padding:12px;border-radius:12px;background:#fff;border:1px solid #E6ECE7"><div style="font-size:11px;color:#667085">Users</div><div style="margin-top:4px;font-size:20px;font-weight:600;letter-spacing:-.02em;color:#111827">4,812</div></div>
+              <div style="padding:12px;border-radius:12px;background:#fff;border:1px solid #E6ECE7"><div style="font-size:11px;color:#667085">Workspaces</div><div style="margin-top:4px;font-size:20px;font-weight:600;letter-spacing:-.02em;color:#111827">38</div></div>
+              <div style="padding:12px;border-radius:12px;background:#fff;border:1px solid #E6ECE7"><div style="font-size:11px;color:#667085">Sources</div><div style="margin-top:4px;font-size:20px;font-weight:600;letter-spacing:-.02em;color:#111827">7</div></div>
+              <div style="padding:12px;border-radius:12px;background:#fff;border:1px solid #E6ECE7"><div style="font-size:11px;color:#667085">Requests · 30d</div><div style="margin-top:4px;font-size:20px;font-weight:600;letter-spacing:-.02em;color:#111827">51.2k</div></div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:12px">
+              <div style="flex:1 1 220px;min-width:0;padding:14px;border-radius:12px;background:#fff;border:1px solid #E6ECE7;display:flex;flex-direction:column;gap:9px">
+                <div style="font-size:12px;font-weight:600;color:#111827">Usage by department</div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#475467"><span style="width:80px;white-space:nowrap">Sciences</span><span style="flex:1;height:8px;border-radius:9px;background:#F0F3F0"><span style="display:block;height:100%;width:82%;border-radius:9px;background:#0A5C36"></span></span></div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#475467"><span style="width:80px;white-space:nowrap">Medicine</span><span style="flex:1;height:8px;border-radius:9px;background:#F0F3F0"><span style="display:block;height:100%;width:64%;border-radius:9px;background:#0A5C36"></span></span></div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#475467"><span style="width:80px;white-space:nowrap">Letters</span><span style="flex:1;height:8px;border-radius:9px;background:#F0F3F0"><span style="display:block;height:100%;width:48%;border-radius:9px;background:#7CC35A"></span></span></div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#475467"><span style="width:80px;white-space:nowrap">Law &amp; Econ.</span><span style="flex:1;height:8px;border-radius:9px;background:#F0F3F0"><span style="display:block;height:100%;width:40%;border-radius:9px;background:#7CC35A"></span></span></div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#475467"><span style="width:80px;white-space:nowrap">Rectorate</span><span style="flex:1;height:8px;border-radius:9px;background:#F0F3F0"><span style="display:block;height:100%;width:26%;border-radius:9px;background:#B9F56A"></span></span></div>
+              </div>
+              <div style="flex:1 1 220px;min-width:0;padding:14px;border-radius:12px;background:#fff;border:1px solid #E6ECE7;display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:#111827">Models<span style="font-weight:500;color:#667085">Default</span></div>
+                <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#1F2937"><span style="width:26px;height:26px;border-radius:7px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:15px">neurology</span><span style="flex:1">Claude</span><span style="width:30px;height:18px;border-radius:99px;background:#0A5C36;position:relative"><span style="position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:99px;background:#fff"></span></span></div>
+                <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#1F2937"><span style="width:26px;height:26px;border-radius:7px;background:#F2F4F7;color:#667085;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:15px">description</span><span style="flex:1">Document uploads</span><span style="width:30px;height:18px;border-radius:99px;background:#0A5C36;position:relative"><span style="position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:99px;background:#fff"></span></span></div>
+                <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#1F2937"><span style="width:26px;height:26px;border-radius:7px;background:#F2F4F7;color:#667085;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:15px">public</span><span style="flex:1">Web access</span><span style="width:30px;height:18px;border-radius:99px;background:#D0D5DD;position:relative"><span style="position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:99px;background:#fff"></span></span></div>
+              </div>
+            </div>
+            <div style="border-radius:12px;background:#fff;border:1px solid #E6ECE7;overflow:hidden">
+              <div style="display:grid;grid-template-columns:1.3fr 1fr 1.4fr;gap:8px;padding:10px 14px;font-size:11px;color:#98A2B3;border-bottom:1px solid #F2F4F7"><span>Role</span><span>Members</span><span>Knowledge access</span></div>
+              <div style="display:grid;grid-template-columns:1.3fr 1fr 1.4fr;gap:8px;padding:10px 14px;font-size:12px;color:#1F2937;align-items:center;border-bottom:1px solid #F2F4F7"><span style="font-weight:500">Students</span><span style="color:#475467">3,940</span><span><span style="font-size:10.5px;color:#0A5C36;padding:3px 7px;border-radius:6px;background:#EEF8E2">Student resources</span></span></div>
+              <div style="display:grid;grid-template-columns:1.3fr 1fr 1.4fr;gap:8px;padding:10px 14px;font-size:12px;color:#1F2937;align-items:center;border-bottom:1px solid #F2F4F7"><span style="font-weight:500">Faculty</span><span style="color:#475467">412</span><span><span style="font-size:10.5px;color:#0A5C36;padding:3px 7px;border-radius:6px;background:#EEF8E2">Academic + research</span></span></div>
+              <div style="display:grid;grid-template-columns:1.3fr 1fr 1.4fr;gap:8px;padding:10px 14px;font-size:12px;color:#1F2937;align-items:center"><span style="font-weight:500">Administration</span><span style="color:#475467">186</span><span><span style="font-size:10.5px;color:#4559C9;padding:3px 7px;border-radius:6px;background:#EEF2FF">Procedures + archives</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- STRUCTURE -->
+<section id="structure" aria-labelledby="struct-title" style="max-width:1240px;margin:0 auto;padding:clamp(96px,12vw,152px) clamp(20px,4vw,32px) 0">
+  <div data-reveal="" style="text-align:center;max-width:720px;margin:0 auto">
+    <div style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border-radius:999px;background:#fff;border:1px solid rgba(17,24,39,.07);box-shadow:0 1px 2px rgba(16,24,40,.04);font-size:13px;font-weight:500;color:#1F2937"><span aria-hidden="true" style="width:22px;height:22px;border-radius:99px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:13px">auto_awesome</span>Roles &amp; access</div>
+    <h2 id="struct-title" style="margin:12px 0 0;font-size:clamp(32px,4.4vw,52px);line-height:1.06;font-weight:600;letter-spacing:-.035em;color:#111827;text-wrap:balance">One platform. Different roles. Controlled access.</h2>
+    <p style="margin:18px auto 0;max-width:540px;font-size:17px;line-height:1.6;color:#667085;text-wrap:pretty">Each group gets the AI capabilities and knowledge appropriate to its work, managed centrally.</p>
+  </div>
+  <div data-reveal="" style="margin-top:56px;display:flex;flex-direction:column;align-items:center">
+    <div style="display:inline-flex;align-items:center;gap:12px;padding:14px 22px 14px 14px;border-radius:18px;background:#073D26;color:#fff;box-shadow:0 20px 40px -20px rgba(6,40,24,.4)">
+      <span style="width:40px;height:40px;border-radius:11px;background:#B9F56A;color:#06301C;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:22px">account_balance</span>
+      <span style="display:flex;flex-direction:column"><span style="font-size:17px;font-weight:600;letter-spacing:-.01em">University</span><span style="font-size:12px;color:rgba(255,255,255,.65)">One UNUVIA environment</span></span>
+    </div>
+    <div aria-hidden="true" style="width:1px;height:32px;background:#C9D6CC"></div>
+    <div style="position:relative;width:100%">
+      <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+        <div aria-hidden="true" style="position:absolute;top:0;left:10%;right:10%;height:1px;background:#C9D6CC"></div>
+      </sc-if>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px">
+        <div style="display:flex;flex-direction:column;align-items:center">
+          <div aria-hidden="true" style="width:1px;height:24px;background:#C9D6CC"></div>
+          <div style="width:100%;border-radius:20px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:20px;display:flex;flex-direction:column;gap:14px;flex:1">
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:34px;height:34px;border-radius:10px;background:#EEF8E2;color:#0A5C36;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:19px">school</span><span style="font-size:16px;font-weight:600;color:#111827">Students</span></div>
+            <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:#344054">
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#0A5C36">check</span>Learning assistant</li>
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#0A5C36">check</span>Document summaries</li>
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#0A5C36">check</span>Student resources</li>
+              <li style="display:flex;gap:8px;align-items:center;color:#98A2B3"><span style="font-family:'Material Symbols Rounded';font-size:16px">lock</span>Administration</li>
+            </ul>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center">
+          <div aria-hidden="true" style="width:1px;height:24px;background:#C9D6CC"></div>
+          <div style="width:100%;border-radius:20px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:20px;display:flex;flex-direction:column;gap:14px;flex:1">
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:34px;height:34px;border-radius:10px;background:#EEF8E2;color:#0A5C36;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:19px">co_present</span><span style="font-size:16px;font-weight:600;color:#111827">Faculty</span></div>
+            <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:#344054">
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#0A5C36">check</span>Course planning</li>
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#0A5C36">check</span>Document analysis</li>
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#0A5C36">check</span>Academic knowledge</li>
+              <li style="display:flex;gap:8px;align-items:center;color:#98A2B3"><span style="font-family:'Material Symbols Rounded';font-size:16px">lock</span>Administration</li>
+            </ul>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center">
+          <div aria-hidden="true" style="width:1px;height:24px;background:#C9D6CC"></div>
+          <div style="width:100%;border-radius:20px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:20px;display:flex;flex-direction:column;gap:14px;flex:1">
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:34px;height:34px;border-radius:10px;background:#EEF8E2;color:#0A5C36;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:19px">biotech</span><span style="font-size:16px;font-weight:600;color:#111827">Researchers</span></div>
+            <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:#344054">
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#0A5C36">check</span>Literature review</li>
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#0A5C36">check</span>Structured extraction</li>
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#0A5C36">check</span>Research workspaces</li>
+              <li style="display:flex;gap:8px;align-items:center;color:#98A2B3"><span style="font-family:'Material Symbols Rounded';font-size:16px">lock</span>Administration</li>
+            </ul>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center">
+          <div aria-hidden="true" style="width:1px;height:24px;background:#C9D6CC"></div>
+          <div style="width:100%;border-radius:20px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:20px;display:flex;flex-direction:column;gap:14px;flex:1">
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:34px;height:34px;border-radius:10px;background:#EEF8E2;color:#0A5C36;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:19px">badge</span><span style="font-size:16px;font-weight:600;color:#111827">Administration</span></div>
+            <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:#344054">
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#0A5C36">check</span>Procedures &amp; archives</li>
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#0A5C36">check</span>Reporting</li>
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#0A5C36">check</span>Workflow automation</li>
+              <li style="display:flex;gap:8px;align-items:center;color:#98A2B3"><span style="font-family:'Material Symbols Rounded';font-size:16px">lock</span>Research data</li>
+            </ul>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center">
+          <div aria-hidden="true" style="width:1px;height:24px;background:#C9D6CC"></div>
+          <div style="width:100%;border-radius:20px;background:#073D26;padding:20px;display:flex;flex-direction:column;gap:14px;flex:1">
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:34px;height:34px;border-radius:10px;background:#B9F56A;color:#06301C;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:19px">settings</span><span style="font-size:16px;font-weight:600;color:#fff">Technical Staff</span></div>
+            <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:rgba(255,255,255,.85)">
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#B9F56A">check</span>Users &amp; roles</li>
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#B9F56A">check</span>Model configuration</li>
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#B9F56A">check</span>Usage monitoring</li>
+              <li style="display:flex;gap:8px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#B9F56A">check</span>Knowledge sources</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WORKFLOWS -->
+<section id="workflows" aria-labelledby="wf-title" style="max-width:1240px;margin:0 auto;padding:clamp(96px,12vw,152px) clamp(20px,4vw,32px) 0">
+  <div data-reveal="" style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:24px">
+    <h2 id="wf-title" style="margin:0;max-width:620px;font-size:clamp(32px,4.4vw,52px);line-height:1.06;font-weight:600;letter-spacing:-.035em;color:#111827;text-wrap:balance">Built for real university workflows</h2>
+    <p style="margin:0;max-width:380px;font-size:16px;line-height:1.6;color:#667085">Everyday tasks across teaching, research and administration, done in one place.</p>
+  </div>
+  <div style="margin-top:48px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px">
+    <article data-reveal="" style="border-radius:24px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:28px;display:flex;flex-direction:column;gap:18px;transition:all .3s ease" style-hover="transform:translateY(-4px);box-shadow:0 24px 48px -24px rgba(6,40,24,.2)">
+      <span style="align-self:flex-start;font-size:12px;font-weight:600;color:#0A5C36;padding:5px 10px;border-radius:99px;background:#EEF8E2">Faculty</span>
+      <h3 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.02em;line-height:1.3;color:#111827">Preparing a new course</h3>
+      <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px">
+        <li style="display:flex;gap:12px;font-size:14.5px;line-height:1.5;color:#475467"><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#0A5C36;padding-top:2px">01</span>Upload the existing syllabus and reading list</li>
+        <li style="display:flex;gap:12px;font-size:14.5px;line-height:1.5;color:#475467"><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#0A5C36;padding-top:2px">02</span>Draft a weekly plan aligned with program regulations</li>
+        <li style="display:flex;gap:12px;font-size:14.5px;line-height:1.5;color:#475467"><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#0A5C36;padding-top:2px">03</span>Generate practice questions for each session</li>
+      </ol>
+    </article>
+    <article data-reveal="" style="border-radius:24px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:28px;display:flex;flex-direction:column;gap:18px;transition:all .3s ease" style-hover="transform:translateY(-4px);box-shadow:0 24px 48px -24px rgba(6,40,24,.2)">
+      <span style="align-self:flex-start;font-size:12px;font-weight:600;color:#0A5C36;padding:5px 10px;border-radius:99px;background:#EEF8E2">Researchers</span>
+      <h3 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.02em;line-height:1.3;color:#111827">Reviewing literature for a grant proposal</h3>
+      <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px">
+        <li style="display:flex;gap:12px;font-size:14.5px;line-height:1.5;color:#475467"><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#0A5C36;padding-top:2px">01</span>Collect papers and reports in a research workspace</li>
+        <li style="display:flex;gap:12px;font-size:14.5px;line-height:1.5;color:#475467"><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#0A5C36;padding-top:2px">02</span>Extract methods, samples and findings into a table</li>
+        <li style="display:flex;gap:12px;font-size:14.5px;line-height:1.5;color:#475467"><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#0A5C36;padding-top:2px">03</span>Summarize gaps to frame the proposal</li>
+      </ol>
+    </article>
+    <article data-reveal="" style="border-radius:24px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:28px;display:flex;flex-direction:column;gap:18px;transition:all .3s ease" style-hover="transform:translateY(-4px);box-shadow:0 24px 48px -24px rgba(6,40,24,.2)">
+      <span style="align-self:flex-start;font-size:12px;font-weight:600;color:#0A5C36;padding:5px 10px;border-radius:99px;background:#EEF8E2">Staff</span>
+      <h3 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.02em;line-height:1.3;color:#111827">Answering student enquiries</h3>
+      <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px">
+        <li style="display:flex;gap:12px;font-size:14.5px;line-height:1.5;color:#475467"><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#0A5C36;padding-top:2px">01</span>Search regulations and procedures in plain language</li>
+        <li style="display:flex;gap:12px;font-size:14.5px;line-height:1.5;color:#475467"><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#0A5C36;padding-top:2px">02</span>Draft a reply that cites the relevant article</li>
+        <li style="display:flex;gap:12px;font-size:14.5px;line-height:1.5;color:#475467"><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#0A5C36;padding-top:2px">03</span>Review and send from the usual channel</li>
+      </ol>
+    </article>
+  </div>
+</section>
+
+<!-- PILOT -->
+<section id="pilot" aria-labelledby="pilot-title" style="max-width:1240px;margin:0 auto;padding:clamp(96px,12vw,152px) clamp(20px,4vw,32px) 0">
+  <div data-reveal="" style="border-radius:28px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:clamp(12px,1.6vw,16px);display:flex;flex-wrap:wrap;gap:clamp(12px,1.6vw,16px)">
+    <div style="flex:1 1 380px;min-width:0;padding:clamp(20px,4vw,48px);display:flex;flex-direction:column">
+      <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#0A5C36;padding:6px 12px;border-radius:99px;background:#EEF8E2"><span style="width:6px;height:6px;border-radius:9px;background:#3BA55C"></span>Pilot environment</span>
+      <h2 id="pilot-title" style="margin:24px 0 0;font-size:clamp(30px,3.8vw,44px);line-height:1.08;font-weight:600;letter-spacing:-.03em;color:#111827">University of Mahajanga</h2>
+      <div style="margin-top:6px;font-size:17px;color:#667085">Madagascar</div>
+      <p style="margin:24px 0 0;max-width:460px;font-size:16px;line-height:1.65;color:#475467;text-wrap:pretty">The platform is being explored as part of digital transformation initiatives in higher education at the University of Mahajanga.</p>
+      <dl style="margin:32px 0 0;padding-top:24px;border-top:1px solid #EEF1EE;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:20px">
+        <div><dt style="font-size:12px;color:#98A2B3">Location</dt><dd style="margin:4px 0 0;font-size:14px;font-weight:500;color:#1F2937">Mahajanga, Madagascar</dd></div>
+        <div><dt style="font-size:12px;color:#98A2B3">Status</dt><dd style="margin:4px 0 0;font-size:14px;font-weight:500;color:#1F2937">Pilot environment</dd></div>
+        <div><dt style="font-size:12px;color:#98A2B3">Context</dt><dd style="margin:4px 0 0;font-size:14px;font-weight:500;color:#1F2937">Digital transformation</dd></div>
+      </dl>
+    </div>
+    <div aria-label="Campus photo placeholder" style="flex:1 1 380px;min-height:340px;border-radius:20px;background:repeating-linear-gradient(135deg,#EEF3EE 0 10px,#E6EDE7 10px 20px);display:flex;align-items:center;justify-content:center">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;color:#667085;padding:6px 10px;border-radius:6px;background:rgba(255,255,255,.8)">campus photo · University of Mahajanga</span>
+    </div>
+  </div>
+</section>
+
+<!-- DEPLOYMENT -->
+<section id="deployment" aria-labelledby="dep-title" style="max-width:1240px;margin:0 auto;padding:clamp(96px,12vw,152px) clamp(20px,4vw,32px) 0">
+  <div data-reveal="" style="text-align:center;max-width:680px;margin:0 auto">
+    <div style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border-radius:999px;background:#fff;border:1px solid rgba(17,24,39,.07);box-shadow:0 1px 2px rgba(16,24,40,.04);font-size:13px;font-weight:500;color:#1F2937"><span aria-hidden="true" style="width:22px;height:22px;border-radius:99px;background:#073D26;color:#B9F56A;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:13px">auto_awesome</span>Deployment</div>
+    <h2 id="dep-title" style="margin:12px 0 0;font-size:clamp(32px,4.4vw,52px);line-height:1.06;font-weight:600;letter-spacing:-.035em;color:#111827;text-wrap:balance">Flexible deployment for universities</h2>
+    <p style="margin:18px auto 0;max-width:500px;font-size:17px;line-height:1.6;color:#667085">Start with a pilot and extend across the institution at your own pace.</p>
+  </div>
+  <div style="margin-top:56px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px;align-items:stretch">
+    <article data-reveal="" style="border-radius:24px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:32px;display:flex;flex-direction:column;gap:20px">
+      <div><h3 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.02em;color:#111827">Pilot</h3><p style="margin:8px 0 0;font-size:15px;line-height:1.55;color:#667085">For institutions evaluating the platform.</p></div>
+      <ul style="margin:0;padding:20px 0 0;border-top:1px solid #EEF1EE;list-style:none;display:flex;flex-direction:column;gap:12px;font-size:14.5px;color:#344054">
+        <li style="display:flex;gap:10px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#0A5C36">check</span>Selected departments or user groups</li>
+        <li style="display:flex;gap:10px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#0A5C36">check</span>Guided onboarding</li>
+        <li style="display:flex;gap:10px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#0A5C36">check</span>Core assistants and documents</li>
+      </ul>
+      <a href="#request" style="margin-top:auto;display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:999px;border:1px solid #D0D9D2;color:#073D26;font-size:15px;font-weight:600;transition:all .2s" style-hover="color:#073D26;background:#F1F5F1">Request Access</a>
+    </article>
+    <article data-reveal="" style="border-radius:24px;background:#073D26;padding:32px;display:flex;flex-direction:column;gap:20px;box-shadow:0 30px 60px -30px rgba(6,40,24,.5)">
+      <div><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.02em;color:#fff">Institution</h3><span style="font-size:11px;font-weight:600;color:#06301C;padding:4px 10px;border-radius:99px;background:#B9F56A">Recommended</span></div><p style="margin:8px 0 0;font-size:15px;line-height:1.55;color:rgba(255,255,255,.7)">For university-wide deployment.</p></div>
+      <ul style="margin:0;padding:20px 0 0;border-top:1px solid rgba(255,255,255,.12);list-style:none;display:flex;flex-direction:column;gap:12px;font-size:14.5px;color:rgba(255,255,255,.88)">
+        <li style="display:flex;gap:10px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#B9F56A">check</span>All role groups on one platform</li>
+        <li style="display:flex;gap:10px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#B9F56A">check</span>Institutional knowledge sources</li>
+        <li style="display:flex;gap:10px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#B9F56A">check</span>Administration and governance console</li>
+        <li style="display:flex;gap:10px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#B9F56A">check</span>Department workspaces</li>
+      </ul>
+      <a href="#request" style="margin-top:auto;display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:999px;background:#B9F56A;color:#06301C;font-size:15px;font-weight:600;transition:all .2s" style-hover="color:#06301C;background:#C9FF7A">Request Access</a>
+    </article>
+    <article data-reveal="" style="border-radius:24px;background:#fff;border:1px solid rgba(6,78,42,.08);padding:32px;display:flex;flex-direction:column;gap:20px">
+      <div><h3 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.02em;color:#111827">Enterprise</h3><p style="margin:8px 0 0;font-size:15px;line-height:1.55;color:#667085">For multi-campus or larger deployments.</p></div>
+      <ul style="margin:0;padding:20px 0 0;border-top:1px solid #EEF1EE;list-style:none;display:flex;flex-direction:column;gap:12px;font-size:14.5px;color:#344054">
+        <li style="display:flex;gap:10px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#0A5C36">check</span>Multiple campuses and entities</li>
+        <li style="display:flex;gap:10px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#0A5C36">check</span>Custom model configuration</li>
+        <li style="display:flex;gap:10px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#0A5C36">check</span>Integration with existing systems</li>
+      </ul>
+      <a href="#contact" style="margin-top:auto;display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:999px;border:1px solid #D0D9D2;color:#073D26;font-size:15px;font-weight:600;transition:all .2s" style-hover="color:#073D26;background:#F1F5F1">Contact Us</a>
+    </article>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section id="request" aria-labelledby="cta-title" style="position:relative;margin-top:clamp(96px,12vw,152px);padding:0 clamp(20px,4vw,32px)">
+  <div aria-hidden="true" style="position:absolute;left:0;right:0;bottom:0;height:50%;background:#052E1B"></div>
+  <div data-reveal="" style="position:relative;max-width:1176px;margin:0 auto;border-radius:28px;background:#073D26;border:1px solid rgba(185,245,106,.18);padding:clamp(56px,8vw,96px) clamp(24px,5vw,64px);text-align:center;overflow:hidden;box-shadow:0 40px 80px -40px rgba(0,0,0,.5)">
+    <div aria-hidden="true" style="position:absolute;inset:0;background:radial-gradient(50% 70% at 50% 0%,rgba(185,245,106,.12),transparent 70%)"></div>
+    <div style="position:relative">
+      <h2 id="cta-title" style="margin:0 auto;max-width:14ch;font-size:clamp(36px,5.4vw,64px);line-height:1.02;font-weight:600;letter-spacing:-.04em;color:#fff;text-wrap:balance">Bring AI to your university.</h2>
+      <p style="margin:22px auto 0;max-width:540px;font-size:17px;line-height:1.6;color:rgba(255,255,255,.72);text-wrap:pretty">Give your university community one secure place to access AI, knowledge, and intelligent workflows.</p>
+      <div style="margin-top:36px;display:flex;flex-wrap:wrap;justify-content:center;gap:12px">
+        <a href="#request" style="display:inline-flex;align-items:center;gap:8px;min-height:50px;padding:0 26px;border-radius:999px;background:#B9F56A;color:#06301C;font-size:15px;font-weight:600;transition:all .2s" style-hover="background:#C9FF7A;color:#06301C;transform:translateY(-1px)">Request Access <span aria-hidden="true" style="font-family:'Material Symbols Rounded';font-size:18px">arrow_forward</span></a>
+        <a id="contact" href="mailto:contact@univa.ai" style="display:inline-flex;align-items:center;min-height:50px;padding:0 26px;border-radius:999px;border:1px solid rgba(255,255,255,.22);color:#fff;font-size:15px;font-weight:500;transition:all .2s" style-hover="color:#fff;background:rgba(255,255,255,.08)">Contact Us</a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer style="background:#052E1B;color:#fff;padding:clamp(64px,8vw,96px) clamp(20px,4vw,32px) 32px">
+  <div style="max-width:1176px;margin:0 auto">
+    <div style="display:flex;flex-wrap:wrap;gap:48px;justify-content:space-between">
+      <div style="flex:1 1 260px;max-width:320px">
+        <a href="#top" aria-label="UNUVIA home" style="display:inline-flex;align-items:center;gap:10px;color:#fff">
+          <img src="assets/univa-icon.png" alt="UNUVIA logo" width="34" height="34" style="width:34px;height:34px;border-radius:9px">
+          <span style="font-weight:700;font-size:19px;letter-spacing:.02em">UNUVIA</span>
+        </a>
+        <p style="margin:16px 0 0;font-size:14px;line-height:1.6;color:rgba(255,255,255,.6)">UNUVIA is an AI workspace for universities, designed to simplify access to AI across teaching, research, administration, and institutional knowledge.</p>
+      </div>
+      <nav aria-label="Footer" style="flex:2 1 560px;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:32px">
+        <div><h3 style="margin:0;font-size:13px;font-weight:600;color:#fff">Product</h3><ul style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;font-size:14px">
+          <li><a href="#features" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">AI Assistant</a></li><li><a href="#features" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">Documents</a></li><li><a href="#features" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">Research</a></li><li><a href="#knowledge" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">Knowledge</a></li><li><a href="#administration" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">Analytics</a></li></ul></div>
+        <div><h3 style="margin:0;font-size:13px;font-weight:600;color:#fff">Solutions</h3><ul style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;font-size:14px">
+          <li><a href="#audiences" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">Students</a></li><li><a href="#audiences" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">Faculty</a></li><li><a href="#audiences" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">Researchers</a></li><li><a href="#audiences" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">Staff</a></li></ul></div>
+        <div><h3 style="margin:0;font-size:13px;font-weight:600;color:#fff">University</h3><ul style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;font-size:14px">
+          <li><a href="#structure" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">Security</a></li><li><a href="#administration" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">Administration</a></li><li><a href="#administration" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">Governance</a></li></ul></div>
+        <div><h3 style="margin:0;font-size:13px;font-weight:600;color:#fff">Resources</h3><ul style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;font-size:14px">
+          <li><a href="#docs" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">Documentation</a></li><li><a href="#models" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">About AI</a></li><li><a href="#contact" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">Contact</a></li></ul></div>
+        <div><h3 style="margin:0;font-size:13px;font-weight:600;color:#fff">Company</h3><ul style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;font-size:14px">
+          <li><a href="#about" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">About</a></li><li><a href="#contact" style="color:rgba(255,255,255,.62)" style-hover="color:#B9F56A">Contact</a></li></ul></div>
+      </nav>
+    </div>
+    <div style="margin-top:64px;padding-top:24px;border-top:1px solid rgba(255,255,255,.1);display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:13px;color:rgba(255,255,255,.5)">
+      <span>© {{ year }} UNUVIA. All rights reserved.</span>
+      <span>Built in Madagascar.</span>
+    </div>
+  </div>
+</footer>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;headline&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;AI Workspace for Universities&quot;,&quot;One AI workspace for the entire university.&quot;],&quot;default&quot;:&quot;One AI workspace for the entire university.&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Hero&quot;},&quot;motion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;}}">
+class Component extends DCLogic {
+  state = { w: typeof window !== 'undefined' ? window.innerWidth : 1280, scrolled: false, menuOpen: false, aud: 1 };
+  componentDidMount() {
+    this.onResize = () => this.setState(s => ({ w: window.innerWidth, menuOpen: window.innerWidth >= 960 ? false : s.menuOpen }));
+    this.onScroll = () => { const v = window.scrollY > 24; if (v !== this.state.scrolled) this.setState({ scrolled: v }); };
+    this.onKey = e => { if (e.key === 'Escape' && this.state.menuOpen) this.setState({ menuOpen: false }); };
+    window.addEventListener('resize', this.onResize);
+    window.addEventListener('scroll', this.onScroll, { passive: true });
+    window.addEventListener('keydown', this.onKey);
+    this.onScroll();
+    this.onResize();
+    if (window.ResizeObserver) { this.ro = new ResizeObserver(() => { if (window.innerWidth !== this.state.w) this.onResize(); }); this.ro.observe(document.documentElement); }
+    setTimeout(() => this.setupMotion(), 60);
+  }
+  componentWillUnmount() {
+    window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('scroll', this.onScroll);
+    window.removeEventListener('keydown', this.onKey);
+    this.io && this.io.disconnect();
+    this.ro && this.ro.disconnect();
+  }
+  setupMotion() {
+    if (this.props.motion === false) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const vh = window.innerHeight;
+    this.io = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        const el = e.target; el.style.opacity = '';
+        el.animate([{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'none' }], { duration: 750, easing: 'cubic-bezier(.2,.7,.2,1)' });
+        this.io.unobserve(el);
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll('[data-reveal]').forEach(el => {
+      if (el.getBoundingClientRect().top > vh) { el.style.opacity = '0'; this.io.observe(el); }
+    });
+    document.querySelectorAll('[data-float]').forEach((el, i) => {
+      el.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-8px)' }, { transform: 'translateY(0)' }], { duration: 5200 + i * 900, iterations: Infinity, easing: 'ease-in-out' });
+    });
+  }
+  audiences(w) {
+    const data = [
+      { name: 'Students', icon: 'school', desc: 'Get study support and clear explanations, and summarize course material in one place.', uses: ['Learning assistance', 'Document summarization', 'Research exploration', 'Study support'] },
+      { name: 'Faculty', icon: 'co_present', desc: 'Prepare courses, support teaching and analyze documents with less manual work.', uses: ['Course preparation', 'Teaching support', 'Document analysis', 'Research'] },
+      { name: 'Researchers', icon: 'biotech', desc: 'Explore literature, analyze documents and extract structured data from sources.', uses: ['Literature exploration', 'Document analysis', 'Structured extraction', 'Research workflows'] },
+      { name: 'Staff', icon: 'badge', desc: 'Find institutional information, prepare reports and automate routine workflows.', uses: ['Institutional documents', 'Reporting', 'Workflow automation', 'Information retrieval'] }
+    ];
+    const basis = w >= 1180 ? null : (w >= 680 ? '1 1 calc(50% - 8px)' : '1 1 100%');
+    return data.map((d, i) => {
+      const s = i === this.state.aud;
+      return { ...d, selected: s, onSelect: () => this.setState({ aud: i }),
+        tabBg: s ? '#fff' : 'transparent', tabColor: s ? '#111827' : '#475467',
+        tabShadow: s ? '0 1px 3px rgba(16,24,40,.08),0 0 0 1px rgba(17,24,39,.05)' : 'none',
+        tabIconBg: s ? '#0B2A1A' : '#DFE6E1', tabIconColor: s ? '#B9F56A' : '#475467',
+        cardFlex: basis || (s ? '1.75 1 0' : '1 1 0'), cardShadow: s ? '0 30px 60px -30px rgba(6,40,24,.45)' : 'none',
+        panelBg: s ? '#073D26' : '#fff', titleColor: s ? '#fff' : '#111827', mutedColor: s ? 'rgba(255,255,255,.74)' : '#667085',
+        iconShadow: s ? '0 0 0 6px rgba(255,255,255,.08)' : '0 10px 22px -8px rgba(16,40,30,.3),0 0 0 1px rgba(17,24,39,.06)',
+        uses: d.uses.map(u => ({ label: u, color: s ? '#B9F56A' : '#073D26', text: s ? 'rgba(255,255,255,.9)' : '#344054' })) };
+    });
+  }
+  renderVals() {
+    const { w, scrolled, menuOpen } = this.state;
+    const isDesktop = w >= 1000;
+    const nav = c => [
+      ['home', 'Home'], ['auto_awesome', 'AI Assistant'], ['biotech', 'Research'], ['description', 'Documents'],
+      ['menu_book', 'Institutional Knowledge'], ['workspaces', 'Workspaces'], ['monitoring', 'Analytics'], ['admin_panel_settings', 'Administration']
+    ].map(([icon, label], i) => ({ icon, label, weight: i === 0 ? 600 : 500, color: i === 0 ? '#073D26' : '#475467', bg: i === 0 ? '#EEF8E2' : 'transparent', iconColor: i === 0 ? '#0A5C36' : '#98A2B3' }));
+    const headline = this.props.headline ?? 'One AI workspace for the entire university.';
+    return {
+      isDesktop, isMobile: !isDesktop, menuOpen,
+      menuIcon: menuOpen ? 'close' : 'menu', menuLabel: menuOpen ? 'Close menu' : 'Open menu',
+      toggleMenu: () => this.setState(s => ({ menuOpen: !s.menuOpen })),
+      closeMenu: () => this.setState({ menuOpen: false }),
+      navOuterPad: scrolled ? '10px 12px' : (isDesktop ? '28px 40px' : '22px 24px'),
+      navMax: scrolled ? '1120px' : '1240px',
+      navInnerPad: scrolled ? '8px 8px 8px 14px' : '0px',
+      navBg: scrolled ? 'rgba(6,48,28,.86)' : 'rgba(6,48,28,0)',
+      navBlur: scrolled ? 'saturate(160%) blur(16px)' : 'none',
+      navShadow: scrolled ? '0 12px 32px -8px rgba(3,30,18,.35)' : 'none',
+      navBorder: scrolled ? 'rgba(255,255,255,.10)' : 'rgba(255,255,255,0)',
+      headlineA: headline.startsWith('Bring'), headlineB: !headline.startsWith('Bring'),
+      showSidebar: w >= 860,
+      wideDisplay: w >= 700 ? 'flex' : 'none',
+      floatDisplay: w >= 1240 ? 'flex' : 'none',
+      sidebar: nav(),
+      quickActions: [['summarize', 'Summarize a document'], ['travel_explore', 'Research a topic'], ['bar_chart', 'Analyze data'], ['menu_book', 'Ask university knowledge'], ['article', 'Generate a report']].map(([icon, label]) => ({ icon, label })),
+      audiences: this.audiences(w),
+      year: new Date().getFullYear(),
+      toTop: () => window.scrollTo({ top: 0, behavior: 'smooth' })
+    };
+  }
+}
+</script>
+</body>
+</html>
