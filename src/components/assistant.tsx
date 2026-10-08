@@ -1,12 +1,15 @@
 'use client';
 
+import { extractDocumentText, MAX_FILE_BYTES } from '@/lib/extract-document';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
 import { ThemeToggle } from './theme-provider';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { MobileNavigation } from './mobile-navigation';
+import { AssistantSidebar } from './assistant-sidebar';
+import { ArrowDown, Download, MoreHorizontal } from 'lucide-react';
+import { AssistantResponse } from './assistant-response';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,12 +31,20 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { completeAssistant } from '@/lib/assistant';
+import { AssistantError } from '@/lib/assistant-errors';
 import { loadChats, saveChats } from '@/lib/chat-storage';
 import {
   type Attachment,
   type Chat,
   DEFAULT_MODEL,
+  MODELS,
   ROLES,
   type UniversityRole,
 } from '@/lib/chat-models';
@@ -43,7 +54,7 @@ const assistants = [
   {
     icon: 'school',
     title: 'Understand a concept',
-    description: 'Clear explanations, at your pace.',
+    description: 'Get an explanation and practice questions.',
     role: 'Student',
     prompt: 'Explain this concept simply, then ask three questions to check my understanding: ',
     color: 'sage',
@@ -51,7 +62,7 @@ const assistants = [
   {
     icon: 'book',
     title: 'Plan a lesson',
-    description: 'Turn teaching ideas into a clear plan.',
+    description: 'Draft objectives, activities and exercises.',
     role: 'Faculty',
     prompt: 'Help me create a lesson plan with learning objectives about ',
     color: 'lavender',
@@ -59,7 +70,7 @@ const assistants = [
   {
     icon: 'flask',
     title: 'Explore a topic',
-    description: 'Give your research a useful starting point.',
+    description: 'Outline a research question or literature review.',
     role: 'Researcher',
     prompt: 'Help me structure a literature review about ',
     color: 'peach',
@@ -74,7 +85,13 @@ const assistants = [
   },
 ] as const;
 
-export function Assistant({ user }: { user: { id: string; name: string; email: string } }) {
+export function Assistant({
+  user,
+  availableModels,
+}: {
+  user: { id: string; name: string; email: string };
+  availableModels: string[] | null;
+}) {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
   useEffect(() => {
@@ -85,27 +102,41 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
   const currentRef = useRef<string | null>(null);
   const [role, setRole] = useState<UniversityRole>('Faculty');
   const [model, setModel] = useState(DEFAULT_MODEL);
+  const [modelNotice, setModelNotice] = useState('');
   const [modelOpen, setModelOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [file, setFile] = useState<Attachment | null>(null);
   const [fileLoading, setFileLoading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [typingResponse, setTypingResponse] = useState<{ chatId: string; index: number } | null>(
+    null
+  );
   const busy = useRef(false);
   const [sideOpen, setSideOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const focusAfterSidebarClose = useRef(false);
   const [error, setError] = useState('');
   const [failed, setFailed] = useState<{ id: string; message: string } | null>(null);
   const [storageError, setStorageError] = useState(false);
   const [ready, setReady] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
   const [copyError, setCopyError] = useState('');
+  const [awayFromLatest, setAwayFromLatest] = useState(false);
   const scroll = useRef<HTMLDivElement>(null);
+  const followResponse = useRef(true);
+  const lastFollowPosition = useRef(0);
   const input = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const current = chats.find((c) => c.id === currentId);
   const messages = current?.messages ?? [];
   const roleLabel = ROLES.find((r) => r.id === role)!.label;
-  const canSend = ready && !loading && !fileLoading && (!!draft.trim() || !!file);
+  const modelAvailable =
+    availableModels === null ||
+    availableModels.includes(model) ||
+    (typeof window !== 'undefined' && typeof window.claude?.complete === 'function');
+  const canSend = ready && modelAvailable && !loading && !fileLoading && (!!draft.trim() || !!file);
   const canRetry = failed?.id === currentId && !!failed && !loading;
 
   useEffect(() => {
@@ -114,11 +145,25 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
     const index = params.get('role');
     setChats(saved.chats);
     setRole(index !== null && /^[0-3]$/.test(index) ? ROLES[Number(index)].id : saved.role);
-    setModel(saved.model);
+    const supported = typeof window.claude?.complete === 'function' ? null : availableModels;
+    if (supported && !supported.includes(saved.model)) {
+      const replacement = MODELS.find((item) => supported.includes(item.id));
+      if (replacement) {
+        setModel(replacement.id);
+        setModelNotice(
+          `${replacement.label} is selected from the models included in your connected plan.`
+        );
+      } else {
+        setModel(saved.model);
+        setModelNotice(
+          'No supported models are available for this workspace. Please contact the workspace owner.'
+        );
+      }
+    } else setModel(saved.model);
     setDraft((params.get('prompt') ?? '').slice(0, 10000));
     setReady(true);
     const resize = () => {
-      if (window.innerWidth >= 768) setSideOpen(false);
+      if (window.innerWidth >= 1024) setSideOpen(false);
     };
     window.addEventListener('resize', resize);
     return () => {
@@ -129,11 +174,24 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
   useEffect(() => {
     if (ready) setStorageError(!saveChats(chats, role, model, user.id));
   }, [chats, role, model, ready, user.id]);
-  useEffect(() => {
-    if (scroll.current) {
-      scroll.current.scrollTop = messages.length ? scroll.current.scrollHeight : 0;
+  const followLatest = useCallback(() => {
+    const el = scroll.current;
+    if (!el) return;
+    // Detect an upward scroll before the browser dispatches its scroll event.
+    if (el.scrollTop < lastFollowPosition.current - 1) followResponse.current = false;
+    if (followResponse.current) {
+      el.scrollTop = el.scrollHeight;
+      lastFollowPosition.current = el.scrollTop;
     }
-  }, [messages.length, loading, currentId]);
+  }, []);
+  const finishTyping = useCallback(() => setTypingResponse(null), []);
+  useEffect(() => {
+    if (!messages.length && scroll.current) {
+      scroll.current.scrollTop = 0;
+      lastFollowPosition.current = 0;
+      followResponse.current = true;
+    } else followLatest();
+  }, [messages.length, loading, currentId, followLatest]);
 
   const focus = useCallback(
     () =>
@@ -145,10 +203,15 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
     []
   );
   function chooseChat(id: string | null) {
+    setTypingResponse(null);
+    setAwayFromLatest(false);
+    followResponse.current = true;
+    lastFollowPosition.current = 0;
     currentRef.current = id;
     setCurrentId(id);
   }
   function newChat() {
+    focusAfterSidebarClose.current = sideOpen;
     chooseChat(null);
     setDraft('');
     setFile(null);
@@ -157,9 +220,30 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
     focus();
   }
   function openChat(id: string) {
+    focusAfterSidebarClose.current = sideOpen;
     chooseChat(id);
     setError(failed?.id === id ? failed.message : '');
     setSideOpen(false);
+    focus();
+  }
+  function renameChat(id: string, title: string) {
+    if (busy.current || !title.trim()) return;
+    setChats((chats) =>
+      chats.map((chat) => (chat.id === id ? { ...chat, title: title.trim() } : chat))
+    );
+  }
+  async function signOut() {
+    if (signingOut || busy.current) return;
+    setSigningOut(true);
+    try {
+      const result = await authClient.signOut();
+      if (result.error) throw new Error('Sign-out failed');
+      router.refresh();
+    } catch {
+      setCopyError('Unable to log out. Please check your connection and try again.');
+    } finally {
+      setSigningOut(false);
+    }
   }
   function removeChat(id: string) {
     if (busy.current) return;
@@ -170,23 +254,18 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
   async function readFile(selected: File) {
     if (busy.current || fileLoading) return;
     setError('');
-    if (!/\.(txt|md|csv)$/i.test(selected.name)) {
-      setError('Choose a text file in .txt, .md, or .csv format.');
+    if (!/\.(txt|md|csv|pdf|docx|jpe?g|png)$/i.test(selected.name)) {
+      setError('Choose a .txt, .md, .csv, .pdf, .docx, .jpg, or .png file.');
       return;
     }
-    if (selected.size > 2_000_000) {
-      setError('This file exceeds 2 MB. Choose a smaller file.');
+    if (selected.size > MAX_FILE_BYTES) {
+      setError('This file exceeds 10 MB. Choose a smaller file.');
       return;
     }
     setFileLoading(true);
     try {
-      const text = await selected.text();
-      if (!text.trim()) throw new Error('This file is empty.');
-      if (text.includes('\u0000'))
-        throw new Error('This file contains binary data. Choose a text file.');
-      if (text.length > 60000)
-        throw new Error('This document exceeds 60,000 characters. Choose a shorter excerpt.');
-      setFile({ name: selected.name, text });
+      const { text, truncated } = await extractDocumentText(selected);
+      setFile({ name: selected.name, text, truncated });
       focus();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to read the document.');
@@ -202,21 +281,28 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
     setFailed(null);
     try {
       const content = await completeAssistant(chat.messages, role, model);
+      if (currentRef.current === chat.id)
+        setTypingResponse({ chatId: chat.id, index: chat.messages.length });
       setChats((chats) =>
         chats.map((c) =>
           c.id === chat.id ? { ...c, messages: [...c.messages, { role: 'assistant', content }] } : c
         )
       );
+      return true;
     } catch (e) {
-      const message = /429|rate/i.test(String(e))
-        ? 'Too many requests. Please wait a moment and try again.'
-        : /model.*(not found|not available|not supported|does not exist)|invalid.*model|permission|403|404/i.test(
-              String(e)
-            )
-          ? 'This model is unavailable for your account. Choose another model and try again.'
-          : 'The assistant could not respond. Check your connection and try again.';
+      const message =
+        e instanceof AssistantError
+          ? e.message
+          : /429|rate/i.test(String(e))
+            ? 'Too many requests. Please wait a moment and try again.'
+            : /model.*(not found|not available|not supported|does not exist)|invalid.*model|permission|403|404/i.test(
+                  String(e)
+                )
+              ? 'This model is unavailable for your account. Choose another model and try again.'
+              : 'The assistant could not respond. Check your connection and try again.';
       setFailed({ id: chat.id, message });
       if (currentRef.current === chat.id) setError(message);
+      return e instanceof AssistantError && e.code === 'not_configured' ? 'not_configured' : false;
     } finally {
       busy.current = false;
       setLoading(false);
@@ -225,12 +311,8 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
   async function send(event?: React.FormEvent) {
     event?.preventDefault();
     if (!canSend || busy.current) return;
-    if (typeof window.claude?.complete !== 'function') {
-      setError(
-        'The assistant service is currently unavailable. Your question and attachment are saved in this composer. Please try again later.'
-      );
-      return;
-    }
+    const previousDraft = draft;
+    const previousFile = file;
     const display = draft.trim() || 'Summarize this document and identify the main ideas.';
     const content = file
       ? `Attached document: ${file.name}\n<document>\n${file.text}\n</document>\n\n${display}`
@@ -244,7 +326,14 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
     chooseChat(updated.id);
     setDraft('');
     setFile(null);
-    await complete(updated);
+    const result = await complete(updated);
+    if (result === 'not_configured') {
+      setChats(chats);
+      chooseChat(current?.id ?? null);
+      setDraft(previousDraft);
+      setFile(previousFile);
+      setFailed(null);
+    }
   }
   async function copy(text: string, index: number) {
     setCopyError('');
@@ -258,9 +347,43 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
     }
   }
 
+  function downloadConversation() {
+    if (!current) return;
+    const transcript =
+      `# ${current.title}\n\n` +
+      current.messages
+        .map(
+          (message) =>
+            `## ${message.role === 'user' ? 'You' : 'UNUVIA'}\n\n` +
+            (message.fileName ? `Attachment: ${message.fileName}\n\n` : '') +
+            (message.display || message.content)
+        )
+        .join('\n\n');
+    const url = URL.createObjectURL(
+      new Blob([transcript], { type: 'text/markdown;charset=utf-8' })
+    );
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `UNUVIA-${
+      current.title
+        .replace(/[^\p{L}\p{N} -]/gu, '')
+        .slice(0, 60)
+        .trim() || 'conversation'
+    }.md`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   function composer() {
     return (
       <>
+        {modelNotice && (
+          <p className="storage-notice" role="status">
+            {modelNotice}
+          </p>
+        )}
         {storageError && (
           <p className="storage-notice" role="status">
             Local saving is unavailable. Your conversations remain available during this session.
@@ -277,6 +400,11 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
           draft={draft}
           onDraftChange={setDraft}
           model={model}
+          availableModels={
+            typeof window !== 'undefined' && typeof window.claude?.complete === 'function'
+              ? null
+              : availableModels
+          }
           onModelChange={setModel}
           onModelOpenChange={setModelOpen}
           file={file}
@@ -313,88 +441,24 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
 
   function sidebar(mobile = false) {
     return (
-      <aside
-        id={mobile ? 'mobile-chat-sidebar' : 'chat-sidebar'}
-        className={mobile ? 'chat-sidebar mobile-sidebar' : 'chat-sidebar desktop-sidebar'}
-        aria-label="Your conversations"
-      >
-        <Link href="/" className="brand" aria-label="UNUVIA home">
-          <img src="/assets/univa-icon.png" alt="UNUVIA logo" width="34" height="34" />
-          <span>UNUVIA</span>
-        </Link>
-        <Link href="/" className="back-to-site">
-          <Icon name="chevron" className="rotate-180" /> Back to website
-        </Link>
-        <Button className="btn new-chat" onClick={newChat}>
-          <Icon name="plus" /> New conversation
-        </Button>
-        <span className="sidebar-label">YOUR CONVERSATIONS</span>
-        <div className="chat-history">
-          {chats.length ? (
-            chats.map((chat) => (
-              <div
-                key={chat.id}
-                className={`history-item ${chat.id === currentId ? 'active' : ''}`}
-              >
-                <Button
-                  variant="ghost"
-                  onClick={() => openChat(chat.id)}
-                  aria-current={chat.id === currentId ? 'true' : undefined}
-                >
-                  <Icon name="chat" />
-                  <span>{chat.title}</span>
-                </Button>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="delete-chat"
-                      disabled={loading}
-                      aria-label={`Delete conversation ${chat.title}`}
-                      onClick={() => removeChat(chat.id)}
-                    >
-                      <Icon name="trash" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Delete conversation</TooltipContent>
-                </Tooltip>
-              </div>
-            ))
-          ) : (
-            <p className="history-empty">
-              Your next ideas
-              <br />
-              start here.
-            </p>
-          )}
-        </div>
-        <div className="chat-sidebar-bottom">
-          <p>
-            <Icon name="lock" /> History saved on this device.
-          </p>
-          <div className="chat-profile">
-            <span className="profile-avatar">
-              <Icon name="school" />
-            </span>
-            <div>
-              {user.name}
-              <small>{roleLabel} · Free workspace</small>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            className="signout-button"
-            disabled={loading}
-            onClick={async () => {
-              await authClient.signOut();
-              router.refresh();
-            }}
-          >
-            Log out
-          </Button>
-        </div>
-      </aside>
+      <AssistantSidebar
+        user={user}
+        chats={chats}
+        currentId={currentId}
+        roleLabel={roleLabel}
+        loading={loading}
+        signingOut={signingOut}
+        mobile={mobile}
+        collapsed={!mobile && sidebarCollapsed}
+        onExpand={() => setSidebarCollapsed(false)}
+        onToggleCollapse={() => setSidebarCollapsed((collapsed) => !collapsed)}
+        onNewChat={newChat}
+        onOpenChat={openChat}
+        onRenameChat={renameChat}
+        onDeleteChat={removeChat}
+        onSignOut={signOut}
+        onFocusComposer={focus}
+      />
     );
   }
 
@@ -404,23 +468,57 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
       <a href="#chat-content" className="skip-link" inert={modelOpen}>
         Skip to assistant
       </a>
-      <div className="assistant-shell" data-ready={ready} inert={modelOpen}>
+      <div
+        className="assistant-shell conversation-workspace"
+        data-ready={ready}
+        data-sidebar-collapsed={sidebarCollapsed}
+        inert={modelOpen}
+      >
         {sidebar()}
         <main id="chat-content" className="chat-main">
           <header className="chat-topbar">
             <div>
               <Sheet open={sideOpen} onOpenChange={setSideOpen}>
-                <SheetTrigger asChild>
+                <MobileNavigation label="Mobile workspace navigation">
+                  <SheetTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="mobile-nav-item"
+                      aria-label="Open navigation"
+                    >
+                      <Icon name="chat" />
+                      <span>Chats</span>
+                    </Button>
+                  </SheetTrigger>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="icon-button menu-toggle"
-                    aria-label="Open navigation"
+                    className="mobile-nav-item mobile-nav-primary"
+                    onClick={newChat}
+                    disabled={loading}
+                    aria-label="New conversation"
                   >
-                    <Icon name="menu" />
+                    <Icon name="plus" />
+                    <span>New chat</span>
                   </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="mobile-chat-sheet">
+                  <Button variant="ghost" asChild className="mobile-nav-item">
+                    <Link href="/">
+                      <Icon name="home" />
+                      <span>Home</span>
+                    </Link>
+                  </Button>
+                  <ThemeToggle label="Theme" className="mobile-nav-item" />
+                </MobileNavigation>
+                <SheetContent
+                  side="left"
+                  className="mobile-chat-sheet workspace-chat-sheet"
+                  onCloseAutoFocus={(event) => {
+                    if (focusAfterSidebarClose.current) {
+                      event.preventDefault();
+                      focusAfterSidebarClose.current = false;
+                      focus();
+                    }
+                  }}
+                >
                   <SheetTitle className="sr-only">Your conversations</SheetTitle>
                   <SheetDescription className="sr-only">
                     Chat history and new conversation
@@ -428,9 +526,18 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
                   {sidebar(true)}
                 </SheetContent>
               </Sheet>
-              <strong>UNUVIA workspace</strong>
+              <strong className="workspace-header-title" title={current?.title}>
+                {current ? (
+                  current.title
+                ) : (
+                  <>
+                    <span className="workspace-brand-short">UNUVIA</span>
+                    <span className="workspace-brand-full">UNUVIA workspace</span>
+                  </>
+                )}
+              </strong>
               <Badge variant="secondary" className="preview-label">
-                FREE
+                Free
               </Badge>
             </div>
             <div className="role-control">
@@ -460,30 +567,52 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
                   ))}
                 </SelectContent>
               </Select>
+              {current && (
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="workspace-topbar-menu"
+                      aria-label="Conversation actions"
+                    >
+                      <MoreHorizontal />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="workspace-action-menu">
+                    <DropdownMenuItem onSelect={downloadConversation}>
+                      <Download /> Download conversation
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           </header>
           <div
             ref={scroll}
+            onScroll={() => {
+              const el = scroll.current;
+              if (el) {
+                followResponse.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
+                setAwayFromLatest(!followResponse.current);
+                lastFollowPosition.current = el.scrollTop;
+              }
+            }}
             className={`chat-scroll ${messages.length ? 'conversation-scroll' : 'welcome-scroll'}`}
           >
             {!messages.length ? (
               <div className="assistant-welcome">
                 <div className="welcome-intro">
-                  <span className="welcome-symbol">
-                    <Icon name="flower" />
-                  </span>
-                  <span className="eyebrow">AI WORKSPACE FOR UNIVERSITIES</span>
-                  <h1>What’s on your mind?</h1>
-                  <p>
-                    A question, a lesson, a new idea.
-                    <br />
-                    Explore learning, teaching, research, and university work.
+                  <p className="workspace-greeting">
+                    Hello, {user.name.trim().split(/\s+/)[0] || 'there'}.
                   </p>
+                  <h1>What are you working on?</h1>
+                  <p>A question, your notes, or an idea to work through.</p>
                 </div>
                 {composer()}
                 <div className="suggestions-heading">
-                  <span>A few ways to get started</span>
-                  <span>Make it yours</span>
+                  <span>A few starting points</span>
+                  <span>Make them your own</span>
                 </div>
                 <div className="assistant-cards">
                   {assistants.map((assistant) => (
@@ -509,15 +638,11 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
                     </Card>
                   ))}
                 </div>
-                <div className="welcome-note">
-                  <Icon name="shield" /> Your documents, your context. Always verify important
-                  answers.
-                </div>
               </div>
             ) : (
               <div
                 className="messages"
-                aria-live="polite"
+                aria-live={typingResponse?.chatId === currentId ? 'off' : 'polite'}
                 aria-relevant="additions"
                 aria-label="Conversation messages"
               >
@@ -529,7 +654,8 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
                   >
                     {message.role === 'assistant' && (
                       <span className="ai-mark">
-                        <Icon name="sparkles" />
+                        <img src="/assets/univa-icon.png" alt="" width="22" height="22" />
+                        <span>UNUVIA</span>
                       </span>
                     )}
                     <div className="message-body">
@@ -542,21 +668,16 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
                       {message.role === 'user' ? (
                         <p>{message.display || message.content}</p>
                       ) : (
-                        <>
-                          <div className="markdown-content">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {message.content}
-                            </ReactMarkdown>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            className="message-copy"
-                            onClick={() => copy(message.content, i)}
-                          >
-                            <Icon name={copied === i ? 'check' : 'copy'} />
-                            {copied === i ? 'Copied' : 'Copy response'}
-                          </Button>
-                        </>
+                        <AssistantResponse
+                          content={message.content}
+                          animate={
+                            typingResponse?.chatId === currentId && typingResponse.index === i
+                          }
+                          copied={copied === i}
+                          onCopy={() => copy(message.content, i)}
+                          onProgress={followLatest}
+                          onRevealComplete={finishTyping}
+                        />
                       )}
                     </div>
                   </article>
@@ -564,7 +685,8 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
                 {loading && (
                   <div className="message">
                     <span className="ai-mark">
-                      <Icon name="sparkles" />
+                      <img src="/assets/univa-icon.png" alt="" width="22" height="22" />
+                      <span>UNUVIA</span>
                     </span>
                     <span
                       className="thinking"
@@ -582,6 +704,22 @@ export function Assistant({ user }: { user: { id: string; name: string; email: s
           </div>
           {messages.length > 0 && (
             <div className="chat-composer-area">
+              {awayFromLatest && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="workspace-jump-latest"
+                  aria-label="Jump to latest message"
+                  onClick={() => {
+                    followResponse.current = true;
+                    lastFollowPosition.current = 0;
+                    followLatest();
+                    setAwayFromLatest(false);
+                  }}
+                >
+                  <ArrowDown />
+                </Button>
+              )}
               <div className="chat-composer-inner">{composer()}</div>
             </div>
           )}
