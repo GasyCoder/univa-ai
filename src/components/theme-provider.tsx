@@ -9,18 +9,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     </Provider>
   );
 }
-export function ThemeToggle() {
+export function ThemeToggle({ label, className = '' }: { label?: string; className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
   return (
     <Button
       variant="ghost"
       size="icon"
-      className="theme-toggle"
+      className={`theme-toggle ${className}`}
       aria-label="Toggle light or dark mode"
       onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
     >
       <Sun className="theme-sun" size={18} />
       <Moon className="theme-moon" size={18} />
+      {label && <span>{label}</span>}
     </Button>
   );
 }
