@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
@@ -6,6 +6,13 @@ import './globals.css';
 const title = 'UNUVIA — AI Workspace for Universities';
 const description =
   'UNUVIA is an AI workspace for universities, helping students, faculty, researchers, and staff access AI, institutional knowledge, and intelligent workflows in one secure platform.';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
+};
 
 export const metadata: Metadata = {
   title,
