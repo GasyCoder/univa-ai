@@ -66,6 +66,9 @@ function SelectContent({
       >
         <SelectScrollUpButton />
         <SelectPrimitive.Viewport
+          role="group"
+          aria-label="Available options"
+          tabIndex={0}
           className={cn(
             'p-1',
             position === 'popper' &&
