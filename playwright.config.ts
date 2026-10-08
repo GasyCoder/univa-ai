@@ -4,6 +4,7 @@ const port = process.env['UNIVA_TEST_PORT'] || '4200';
 
 export default defineConfig({
   testDir: './tests',
+  testMatch: '**/*.spec.ts',
   fullyParallel: true,
   workers: 2,
   reporter: 'list',
