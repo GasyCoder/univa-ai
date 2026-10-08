@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 
 export const googleEnabled = Boolean(
-  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+  process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim()
 );
 
 function makeAuth() {
@@ -40,11 +40,16 @@ function makeAuth() {
     socialProviders: googleEnabled
       ? {
           google: {
-            clientId: process.env.GOOGLE_CLIENT_ID!,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+            clientId: process.env.GOOGLE_CLIENT_ID!.trim(),
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!.trim(),
+            prompt: 'select_account',
+            // Offline access keeps Google Drive usable after the first hour (refresh token).
+            accessType: 'offline',
           },
         }
       : {},
+    // Lets an email/password user connect a Google account (for Drive) with another address.
+    account: { accountLinking: { enabled: true, allowDifferentEmails: true } },
     rateLimit: { enabled: true, storage: 'database' },
     session: { expiresIn: 60 * 60 * 24 * 7, updateAge: 60 * 60 * 24 },
   });
