@@ -34,7 +34,9 @@ export function AccessDialog({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [joined, setJoined] = useState(false);
-  const [google, setGoogle] = useState(false);
+  const [google, setGoogle] = useState<boolean | null>(null);
+  const [providerError, setProviderError] = useState(false);
+  const [providerAttempt, setProviderAttempt] = useState(0);
   useEffect(() => {
     if (open) {
       setMode(initialMode);
@@ -44,11 +46,21 @@ export function AccessDialog({
     }
   }, [open, initialMode]);
   useEffect(() => {
-    fetch('/api/auth-config')
-      .then((r) => r.json())
+    if (!open) return;
+    const controller = new AbortController();
+    setGoogle(null);
+    setProviderError(false);
+    fetch('/api/auth-config', { cache: 'no-store', signal: controller.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error('Unable to load sign-in options');
+        return r.json();
+      })
       .then((data) => setGoogle(data.googleEnabled === true))
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        if (!controller.signal.aborted) setProviderError(true);
+      });
+    return () => controller.abort();
+  }, [open, providerAttempt]);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
@@ -95,7 +107,7 @@ export function AccessDialog({
     }
   }
   async function googleLogin() {
-    if (busy || !google) return;
+    if (busy || google !== true) return;
     setBusy(true);
     setError('');
     try {
@@ -140,11 +152,7 @@ export function AccessDialog({
           <span>UNUVIA</span>
         </div>
         <DialogTitle>
-          {success
-            ? 'You’re in.'
-            : mode === 'signup'
-              ? 'Create your UNUVIA account.'
-              : 'Welcome back.'}
+          {success ? 'You’re in.' : mode === 'signup' ? 'Create an account.' : 'Log in.'}
         </DialogTitle>
         <DialogDescription>
           {success
@@ -157,7 +165,7 @@ export function AccessDialog({
               ? 'Create an account or log in to join the Pro waitlist. No payment required.'
               : mode === 'signup'
                 ? 'Create your free account. Any email address works.'
-                : 'Log in to pick up where you left off.'}
+                : 'Enter your email and password to continue.'}
         </DialogDescription>
         {success ? (
           <div className="auth-success">
@@ -194,7 +202,7 @@ export function AccessDialog({
                       <Button
                         variant="outline"
                         className="google-button"
-                        disabled={!google || busy}
+                        disabled={google !== true || busy}
                         onClick={googleLogin}
                       >
                         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -217,9 +225,25 @@ export function AccessDialog({
                         </svg>
                         Continue with Google
                       </Button>
-                      {!google && (
+                      {google === null && !providerError && (
+                        <p className="auth-provider-note" role="status">
+                          Checking sign-in options…
+                        </p>
+                      )}
+                      {providerError && (
+                        <div className="auth-provider-retry">
+                          <p className="auth-provider-note">Couldn’t load Google sign-in.</p>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setProviderAttempt((value) => value + 1)}
+                          >
+                            Try again
+                          </Button>
+                        </div>
+                      )}
+                      {google === false && (
                         <p className="auth-provider-note">
-                          Google sign-in is currently unavailable. Continue with email.
+                          Google sign-in isn’t enabled for this site yet. Continue with email.
                         </p>
                       )}
                       <div className="auth-divider">
