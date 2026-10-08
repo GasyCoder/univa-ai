@@ -1,4 +1,6 @@
-import { getAuth, getAuthDatabase } from '@/lib/auth';
+import { getAuthDatabase } from '@/lib/auth';
+import { assistantAccess, apiFailure, requireAccount } from '@/lib/account';
+import { PLANS } from '@/lib/plans';
 import {
   MODELS,
   ROLES,
@@ -44,10 +46,12 @@ async function readBody(request: Request): Promise<unknown> {
 }
 
 export async function POST(request: Request) {
-  const allowedOrigin = new URL(process.env.BETTER_AUTH_URL || 'http://127.0.0.1:4200').origin;
-  if (request.headers.get('origin') !== allowedOrigin) return failure('invalid_origin', 403);
-  const session = await (await getAuth()).api.getSession({ headers: request.headers });
-  if (!session) return failure('sign_in_required', 401);
+  let user;
+  try {
+    user = await requireAccount(request, true);
+  } catch (error) {
+    return apiFailure(error);
+  }
   if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json'))
     return failure('invalid_request', 400);
   if (Number(request.headers.get('content-length') || 0) > MAX_BYTES)
@@ -103,23 +107,26 @@ export async function POST(request: Request) {
   const apiKey = process.env.APMIX_API_KEY?.trim();
   if (!apiKey) return failure('not_configured', 503);
 
-  const database = await getAuthDatabase();
-  database.exec(
-    'CREATE TABLE IF NOT EXISTS assistant_rate_limits (user_id TEXT PRIMARY KEY REFERENCES user(id) ON DELETE CASCADE, window_start INTEGER NOT NULL, count INTEGER NOT NULL)'
-  );
-  const window = Math.floor(Date.now() / 60000);
-  const permit = database
-    .prepare(
+  try {
+    const { plan, modelIds } = await assistantAccess(user.id, null);
+    if (!modelIds.includes(model)) return failure('model_not_allowed', 403);
+    const database = await getAuthDatabase();
+    const window = Math.floor(Date.now() / 60000);
+    const permit = await database.query(
       `
-    INSERT INTO assistant_rate_limits (user_id, window_start, count) VALUES (?, ?, 1)
-    ON CONFLICT(user_id) DO UPDATE SET
-      count = CASE WHEN window_start = excluded.window_start THEN count + 1 ELSE 1 END,
-      window_start = excluded.window_start
-    WHERE window_start != excluded.window_start OR count < 10
-  `
-    )
-    .run(session.user.id, window);
-  if (!permit.changes) return failure('rate_limited', 429);
+      INSERT INTO assistant_rate_limits (user_id, window_start, count) VALUES ($1, $2, 1)
+      ON CONFLICT(user_id) DO UPDATE SET
+        count = CASE WHEN assistant_rate_limits.window_start = excluded.window_start THEN assistant_rate_limits.count + 1 ELSE 1 END,
+        window_start = excluded.window_start
+      WHERE assistant_rate_limits.window_start != excluded.window_start OR assistant_rate_limits.count < $3
+      RETURNING user_id
+    `,
+      [user.id, window, PLANS[plan].requestsPerMinute]
+    );
+    if (!permit.rowCount) return failure('rate_limited', 429);
+  } catch (error) {
+    return apiFailure(error);
+  }
 
   try {
     const stream = await streamWithApmix(

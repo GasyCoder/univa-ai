@@ -7,17 +7,17 @@ export const faqs = [
   {
     question: 'What can I use today?',
     answer:
-      'Ask questions, attach text documents, choose a model and save conversations in this browser. Responses require a connected model service.',
+      'Ask questions, attach documents or extract text from images, and save conversations in this browser. Responses require a connected model service.',
   },
   {
     question: 'What does the Free plan include?',
     answer:
-      'Your personal workspace, browser history, text attachments and model selection. No credit card is needed. Creating an account does not include access to a model service.',
+      'Your personal workspace, browser history, document attachments and Claude Sonnet 4.6 Free, with up to 10 requests per minute. No credit card is needed. Responses depend on the connected service.',
   },
   {
     question: 'Can I subscribe to Pro now?',
     answer:
-      'Not yet. Pro is planned at $12 per month in USD. You can join the waitlist now, with no payment or subscription.',
+      'Open your account’s Plan tab to check payment availability and your local price. Pay using the provided instructions, then submit your transaction reference. Pro starts after an administrator verifies the payment, for 30 days, with no automatic renewal.',
   },
   {
     question: 'Where are my conversations stored?',

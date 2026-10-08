@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   devIndicators: false,
-  serverExternalPackages: ['better-sqlite3'],
+  serverExternalPackages: ['pg'],
   async redirects() {
     return [
       { source: '/UNIVA Assistant.dc.html', destination: '/assistant', permanent: true },

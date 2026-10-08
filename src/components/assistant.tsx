@@ -4,6 +4,9 @@ import { DOCUMENT_PATTERN, extractDocumentText, MAX_FILE_BYTES } from '@/lib/ext
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTheme } from 'next-themes';
+import { PLANS, type AccountData } from '@/lib/plans';
+import { accountRequest } from '@/lib/account-client';
 import { authClient } from '@/lib/auth-client';
 import { ThemeToggle } from './theme-provider';
 import { MobileNavigation } from './mobile-navigation';
@@ -54,7 +57,6 @@ import {
   type Attachment,
   type Chat,
   type ChatMessage,
-  DEFAULT_MODEL,
   MODELS,
   type ReasoningLevel,
   reasoningLevelsFor,
@@ -112,11 +114,14 @@ function attachmentOf(message: ChatMessage, key: string): Artifact | null {
 export function Assistant({
   user,
   availableModels,
+  account,
 }: {
-  user: { id: string; name: string; email: string };
+  user: { id: string; name: string; email: string; image?: string | null };
+  account: AccountData;
   availableModels: string[] | null;
 }) {
   const router = useRouter();
+  const { setTheme } = useTheme();
   const { data: session, isPending } = authClient.useSession();
   useEffect(() => {
     if (!isPending && (!session || session.user.id !== user.id)) router.refresh();
@@ -124,8 +129,8 @@ export function Assistant({
   const [chats, setChats] = useState<Chat[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const currentRef = useRef<string | null>(null);
-  const [role, setRole] = useState<UniversityRole>('Faculty');
-  const [model, setModel] = useState(DEFAULT_MODEL);
+  const [role, setRole] = useState<UniversityRole>(account.profile.role);
+  const [model, setModel] = useState(account.profile.default_model);
   const [modelNotice, setModelNotice] = useState('');
   const [modelOpen, setModelOpen] = useState(false);
   const [draft, setDraft] = useState('');
@@ -134,7 +139,9 @@ export function Assistant({
   const [loading, setLoading] = useState(false);
   // Text of the response being received; it joins the chat once complete.
   const [streaming, setStreaming] = useState<{ chatId: string; text: string } | null>(null);
-  const [reasoning, setReasoning] = useState<ReasoningLevel | null>(null);
+  const [reasoning, setReasoning] = useState<ReasoningLevel | null>(
+    account.profile.default_reasoning
+  );
   const abort = useRef<AbortController | null>(null);
   const panel = useArtifactPanel();
   const busy = useRef(false);
@@ -158,10 +165,7 @@ export function Assistant({
   const current = chats.find((c) => c.id === currentId);
   const messages = current?.messages ?? [];
   const roleLabel = ROLES.find((r) => r.id === role)!.label;
-  const modelAvailable =
-    availableModels === null ||
-    availableModels.includes(model) ||
-    (typeof window !== 'undefined' && typeof window.claude?.complete === 'function');
+  const modelAvailable = availableModels === null || availableModels.includes(model);
   const canSend = ready && modelAvailable && !loading && !fileLoading && (!!draft.trim() || !!file);
   const canRetry = failed?.id === currentId && !!failed && !loading;
   const streamingText = streaming && streaming.chatId === currentId ? streaming.text : null;
@@ -195,9 +199,12 @@ export function Assistant({
     const params = new URLSearchParams(window.location.search);
     const index = params.get('role');
     setChats(saved.chats);
-    setRole(index !== null && /^[0-3]$/.test(index) ? ROLES[Number(index)].id : saved.role);
-    const supported = typeof window.claude?.complete === 'function' ? null : availableModels;
-    if (supported && !supported.includes(saved.model)) {
+    setRole(
+      index !== null && /^[0-3]$/.test(index) ? ROLES[Number(index)].id : account.profile.role
+    );
+    setTheme(account.profile.theme);
+    const supported = availableModels;
+    if (supported && !supported.includes(account.profile.default_model)) {
       const replacement = MODELS.find((item) => supported.includes(item.id));
       if (replacement) {
         setModel(replacement.id);
@@ -205,12 +212,12 @@ export function Assistant({
           `${replacement.label} is selected from the models included in your connected plan.`
         );
       } else {
-        setModel(saved.model);
+        setModel(account.profile.default_model);
         setModelNotice(
           'No supported models are available for this workspace. Please contact the workspace owner.'
         );
       }
-    } else setModel(saved.model);
+    } else setModel(account.profile.default_model);
     setDraft((params.get('prompt') ?? '').slice(0, 10000));
     setReady(true);
     const resize = () => {
@@ -535,11 +542,7 @@ export function Assistant({
           draft={draft}
           onDraftChange={setDraft}
           model={model}
-          availableModels={
-            typeof window !== 'undefined' && typeof window.claude?.complete === 'function'
-              ? null
-              : availableModels
-          }
+          availableModels={availableModels}
           onModelChange={setModel}
           onModelOpenChange={setModelOpen}
           reasoning={activeReasoning ?? null}
@@ -577,6 +580,15 @@ export function Assistant({
     );
   }
 
+  async function saveTheme(theme: 'light' | 'dark') {
+    try {
+      await accountRequest('/api/account', { theme }, 'PUT');
+    } catch {
+      setError(
+        'Your theme changed on this device, but could not be saved to your account. Please try again.'
+      );
+    }
+  }
   function sidebar(mobile = false) {
     return (
       <AssistantSidebar
@@ -584,6 +596,8 @@ export function Assistant({
         chats={chats}
         currentId={currentId}
         roleLabel={roleLabel}
+        plan={account.plan}
+        isAdmin={account.isAdmin}
         loading={loading}
         signingOut={signingOut}
         mobile={mobile}
@@ -649,7 +663,11 @@ export function Assistant({
                         <span>Home</span>
                       </Link>
                     </Button>
-                    <ThemeToggle label="Theme" className="mobile-nav-item" />
+                    <ThemeToggle
+                      label="Theme"
+                      className="mobile-nav-item"
+                      onThemeChange={saveTheme}
+                    />
                   </MobileNavigation>
                   <SheetContent
                     side="left"
@@ -680,11 +698,11 @@ export function Assistant({
                   )}
                 </strong>
                 <Badge variant="secondary" className="preview-label">
-                  Free
+                  {PLANS[account.plan].label}
                 </Badge>
               </div>
               <div className="role-control">
-                <ThemeToggle />
+                <ThemeToggle onThemeChange={saveTheme} />
                 <Icon name="school" />
                 <Label htmlFor="chat-role" className="sr-only">
                   My workspace role

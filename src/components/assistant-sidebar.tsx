@@ -44,6 +44,8 @@ type ConversationAction = { kind: 'rename' | 'delete'; chat: Chat };
 
 export function AssistantSidebar({
   user,
+  plan,
+  isAdmin,
   chats,
   currentId,
   roleLabel,
@@ -60,7 +62,9 @@ export function AssistantSidebar({
   onSignOut,
   onFocusComposer,
 }: {
-  user: { name: string; email: string };
+  user: { name: string; email: string; image?: string | null };
+  plan: 'free' | 'pro';
+  isAdmin: boolean;
   chats: Chat[];
   currentId: string | null;
   roleLabel: string;
@@ -167,7 +171,7 @@ export function AssistantSidebar({
           <div className="workspace-context">
             <span className="workspace-context-dot" aria-hidden="true" />
             <span>Personal workspace</span>
-            <Badge variant="outline">Free</Badge>
+            <Badge variant="outline">{plan === 'pro' ? 'Pro' : 'Free'}</Badge>
           </div>
         )}
       </div>
@@ -337,13 +341,19 @@ export function AssistantSidebar({
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="chat-profile" aria-label="Account menu">
               <span className="profile-avatar" aria-hidden="true">
-                {avatar.toUpperCase()}
+                {user.image ? (
+                  <img src={user.image} alt="" className="size-full rounded-full object-cover" />
+                ) : (
+                  avatar.toUpperCase()
+                )}
               </span>
               {!collapsed && (
                 <>
                   <span className="workspace-profile-copy">
                     <strong>{user.name}</strong>
-                    <small>{roleLabel} · Free workspace</small>
+                    <small>
+                      {roleLabel} · {plan === 'pro' ? 'Pro' : 'Free'} workspace
+                    </small>
                   </span>
                   <ChevronsUpDown />
                 </>
@@ -360,9 +370,22 @@ export function AssistantSidebar({
             <DropdownMenuLabel>
               <strong>{user.name}</strong>
               <span>{user.email}</span>
-              <small>Free workspace</small>
+              <small>{plan === 'pro' ? 'Pro' : 'Free'} workspace</small>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/account">Profile and settings</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/account?tab=subscription">
+                {plan === 'pro' ? 'Manage subscription' : 'Upgrade to Pro'}
+              </Link>
+            </DropdownMenuItem>
+            {isAdmin && (
+              <DropdownMenuItem asChild>
+                <Link href="/admin/subscriptions">Subscription administration</Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem asChild>
               <Link href="/">
                 <ArrowLeft /> Back to website

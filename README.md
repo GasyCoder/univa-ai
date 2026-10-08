@@ -1,84 +1,101 @@
 # UNUVIA — Next.js, TypeScript & shadcn/ui
 
-UNUVIA uses Next.js 16 App Router, React 19, strict TypeScript, Tailwind CSS 4, and the official shadcn/ui components. The product, pricing, authentication, and assistant interfaces are in English. Light and dark themes share one persistent preference.
+UNUVIA uses Next.js 16 App Router, React 19, strict TypeScript, Tailwind CSS 4, shadcn/ui and PostgreSQL. The interface is in English, with light, dark and system appearance preferences.
 
 ## Run locally
 
-Use Node.js 22 or later.
+Use Node.js 22 or later and a reachable PostgreSQL database. Local checks have been run on PostgreSQL 15.17.
 
 ```bash
 npm ci
+cp .env.example .env.local
+# Configure DATABASE_URL and the optional providers in .env.local.
 npm run dev
 ```
 
-Open `http://127.0.0.1:4200`. Email/password registration works immediately in development. A random signing secret is generated in `.data/auth-secret` on first use; it is never committed. The SQLite database and its migrations initialize on first authentication request.
+Open `http://127.0.0.1:4200`. `DATABASE_URL` is required, for example `postgresql://unuvia:password@127.0.0.1:5432/unuvia`. The database role needs permission to create tables and indexes. Better Auth and application tables initialize on the first authentication request, with an advisory lock to serialize concurrent initialization. Application SQL is bundled in `src/lib/schema.ts`; no separate SQL file is needed by the production bundle.
 
-For another port, set `BETTER_AUTH_URL` to the matching origin and run `npm run dev -- --port 4210`. The auth origin must match the URL you open in the browser. Use `127.0.0.1`, rather than `localhost`, with the default configuration.
+Development generates a signing secret in `.data/auth-secret` if `BETTER_AUTH_SECRET` is absent. Set a stable secret of at least 32 characters before starting production. Never commit `.env.local` or expose credentials through `NEXT_PUBLIC_*`.
 
-## Authentication
+For another port, set `BETTER_AUTH_URL` to the matching origin and run `npm run dev -- --port 4210`. The configured auth origin must match the browser URL; the default uses `127.0.0.1`.
 
-[Better Auth](https://better-auth.com/docs/installation) handles password hashing, server sessions, HttpOnly cookies, origin checks, and persisted rate limits. Users can register with any valid email address and an 8–128 character password. The assistant checks the session on the server, including direct visits, and displays a centered login/register dialog when signed out. The requested role and prompt remain in the URL through email login. Logout invalidates the server session.
+The previous SQLite file is left intact as a backup. Its test accounts are not imported into PostgreSQL. SQLite is no longer used by the application.
 
-Email verification, password reset emails, and account deletion are not implemented. There is no transactional mail provider configured. Do not represent these features as available.
+## Authentication and accounts
 
-### Enable Google
+[Better Auth](https://better-auth.com/docs/installation) handles password hashing, HttpOnly session cookies, Google OAuth and persisted authentication rate limits. Users can register with any valid email address and an 8–128 character password. The assistant and `/account` require a server session and show the login/register dialog when signed out.
 
-Copy `.env.example` to `.env.local`, then configure:
+`/account` has Profile, Settings and Plan tabs:
+
+- Profile: name, photo, university role, institution and country. Uploaded photos are cropped and resized locally before saving.
+- Settings: appearance, default model and supported reasoning preference. Defaults are saved on the server and read when opening the assistant. The theme toggle also saves a signed-in user's appearance preference.
+- Password changes use Better Auth and revoke other sessions. Account deletion requires explicit confirmation plus the current password for password accounts, or a recent sign-in for Google-only accounts. Server profile/subscription records and local chat files on the current device are removed.
+
+Email verification messages and password-reset email delivery are not configured. Google verifies its sign-in email. Account IDs and paid entitlements supplied in browser requests cannot change account ownership or privileges.
+
+### Enable Google and Drive
+
+Configure `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env.local`. Create a Web application OAuth client in Google Cloud and authorize `http://127.0.0.1:4200/api/auth/callback/google`; use the public origin for production. Run `npm run auth:check` to inspect configuration without printing secrets. Restart Next.js after changes.
+
+For the Drive connector, enable Google Drive API and allow `drive.readonly` in the consent screen. The application can connect a Google account for Drive independently of the password account's email. Connecting another address does not verify the original email.
+
+Actual Google sign-in depends on valid Google Console credentials and has not been tested against a live Google account in this change. See [Better Auth's Google guide](https://better-auth.com/docs/authentication/google).
+
+## Plans and manual payments
+
+`src/lib/plans.ts` defines entitlements used by both the server and UI:
+
+| Plan | Models                 | Requests per minute |
+| ---- | ---------------------- | ------------------- |
+| Free | Claude Sonnet 4.6 Free | 10                  |
+| Pro  | All configured models  | 30                  |
+
+The connected provider must support a model for it to be usable. Purchasing UNUVIA Pro does not grant the provider key new permissions or allowance. The currently connected key was observed to expose only Sonnet 4.6 Free; expanded model access requires a compatible provider plan.
+
+Pro lasts 30 days, with no automatic renewal. Regional prices are €12 for euro-area countries and $12 otherwise. The proposed Madagascar price is **not enabled until confirmed**: set `PRO_PRICE_MGA` to the whole-ariary amount after agreement. Until then, Madagascar also uses the default USD price. Country is saved in the profile; language supplies only a suggestion that the user can accept. USD/EUR amounts are stored in minor units; MGA amounts are stored as whole ariary.
+
+Payments happen **outside UNUVIA**. Configure the instructions to enable each method:
 
 ```dotenv
-BETTER_AUTH_URL=http://127.0.0.1:4200
-BETTER_AUTH_SECRET=your-random-secret-of-at-least-32-characters
-GOOGLE_CLIENT_ID=your-google-oauth-client-id
-GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+PAYMENT_MOBILE_MONEY_INSTRUCTIONS="Your merchant name, number and payment instructions"
+PAYMENT_CARD_INSTRUCTIONS="Your external merchant payment link and instructions"
+PRO_PRICE_MGA=
+ADMIN_EMAILS=
 ```
 
-Create a **Web application** OAuth client in Google Cloud. Register `http://127.0.0.1:4200/api/auth/callback/google` as the authorized redirect URI, and use the production origin for production. Run `npm run auth:check` to check which credentials are missing and display the exact callback URL, without printing secrets. Restart the server after changing credentials. The Google button checks the provider when the dialog opens; it is enabled only when both credentials exist. A failed configuration request can be retried. Real Google login requires those credentials and has not been tested against a live Google account. See [Better Auth’s Google guide](https://better-auth.com/docs/authentication/google).
+Empty instructions disable that method. The app does not collect card numbers, initiate charges or invent an online checkout. The user pays externally and submits a transaction reference in the Plan tab. The server records the price, currency and method, and an administrator checks that the payment was received before approving or rejecting it. Rejection requires a note shown to the user.
 
-Never place provider secrets in a `NEXT_PUBLIC_*` variable or commit `.env.local`.
+One pending request is permitted per account. References cannot be reused for the same payment method. Transactions and row locks prevent duplicate approval and concurrent renewal errors. Approval adds 30 days to an active period, or starts a new period from now if expired/cancelled. Expiry returns the account to Free immediately on access checks, without a scheduled job. Cancellation removes Pro immediately.
 
-## Product and pricing
+### Subscription administration
 
-- **Free — $0:** personal workspace, local history, text attachments, and model picker. Assistant responses require a connected model service.
-- **Pro — planned $12/month in USD:** an authenticated waitlist. Planned features are explicitly labeled. Joining records the user ID and date in SQLite, with one entry per account.
-- **Team — custom proposal:** a contact-sales email link to `contact@univa.ai`.
+Set `ADMIN_EMAILS` to a comma-separated list of trusted account emails. **An allowlisted email must also be verified** before it can access `/admin/subscriptions`. Sign in using Google with that exact email; simply registering a password account with an administrator's email does not grant admin rights.
 
-These are provisional product prices, rather than configured subscriptions. There is no checkout, payment collection, or paid entitlement. Edit the pricing section in `src/components/landing.tsx` to change the offers. Product FAQ content lives in `src/lib/landing-data.ts`.
+The administration page lists payment requests, Pro periods and an activity log. It can approve/reject payments, extend a period or cancel access. All changes require an authenticated, verified administrator and the configured site origin. Non-admin access returns 404. Ordinary account endpoints cannot grant Pro or administrator access.
 
-The privacy and usage dialogs describe the current implementation. They are informational product copy, rather than a substitute for production legal documents.
+`/api/waitlist` has been removed. Pricing links now lead to the account's Plan tab. Team features remain available only by separate agreement.
 
-## Assistant
+## Assistant, streaming and files
 
-Links from the site open the assistant in a separate window or tab with `noopener`. Without a session, the assistant first asks the visitor to log in or register.
+Assistant links open a separate tab/window. The composer supports drag-and-drop, document attachments, dictation where supported by the browser, a model picker and generation stop. Desktop Enter sends; Shift+Enter inserts a line. On touch devices Enter inserts a line.
 
-The composer expands with the text, accepts file attachments and drag-and-drop, and has a shadcn model picker. Desktop Enter sends and Shift+Enter inserts a line; on touch devices Enter inserts a line. Attachments support `.txt`, `.md`, and `.csv`, up to 2 MB and 60,000 characters.
+Supported attachments: TXT, MD, CSV, PDF, DOCX, XLSX, JPG and PNG, up to 10 MB. Text is extracted in the browser; images and scanned PDF pages use OCR in French/English, rather than vision-model inputs. Scanned PDF OCR reads up to the first ten pages. Document text is truncated at 190,000 characters with a notice. The originals are stored in IndexedDB on the current device, scoped to the signed-in account; the extracted text is sent with the question.
 
-Models include Sonnet 5.5, Opus 5.5, Fable 5.1, Haiku 4.5, Sonnet 4.6, and Sonnet 4.6 Free. IDs and descriptions are in `src/lib/chat-models.ts`. On authenticated page loads, UNUVIA reads the APMIX catalog for the configured key, cached on the server for one minute. Models outside that catalog are disabled in the picker. If a saved model is unavailable, a supported model is visibly selected with an explanatory notice; the server never substitutes a different model during a request.
+Standalone chat uses authenticated `/api/assistant`, which forwards to [APMIX Chat Completions](https://apmix.ai/docs). Configure the server-only `APMIX_API_KEY`, then restart. `npm run apmix:check` reads the key's catalog without generating an answer. Public UI uses UNUVIA/GasyCoderAI branding; provider names here describe technical configuration.
 
-Standalone UNUVIA calls its authenticated `/api/assistant` server endpoint, which forwards requests to [APMIX Chat Completions](https://apmix.ai/docs). Configure `APMIX_API_KEY` in `.env.local`, then restart Next.js. Keep this key on the server; it must never use a `NEXT_PUBLIC_*` variable. Run `npm run apmix:check` to read the models available to your key without generating a response. The API key is obtained from APMIX Dashboard → API keys; Billing manages the plan and allowance.
+The endpoint checks the session, origin, input bounds and account's plan; it limits JSON to 2 MB, total message content to 400,000 characters, each message to 200,000 characters and history to 100 messages. Per-account minute counters are atomic PostgreSQL updates. No model is substituted during a request. Provider errors are mapped to safe user messages without returning credentials or internal details.
 
-The provider receives the selected model, conversation text, attached document text, and a role-specific system prompt. Model permissions and usage limits depend on the APMIX plan. Sonnet 4.6 Free is provided as a separate choice; the app never silently substitutes a different model. Requests require a signed-in session and the configured site origin, validate model/role/message inputs, limit payloads to 512 KB and 240,000 content characters, and enforce ten requests per account per minute in SQLite. Responses have a 60-second timeout. Quota, authentication, model-access, and temporary-provider failures have distinct user-facing messages; upstream error details and keys are never returned to the browser. If the key is absent, the draft and attachment are restored without adding a conversation. Other failed requests retain the message and attachment in the conversation and offer retry.
+Responses stream as UTF-8 text while generation is in progress. Stop cancels generation and retains the received text. Markdown/code/document artifacts can open in a resizable side panel and be downloaded. The conversation follows the response until the reader scrolls up. The `window.claude.complete()` bridge remains supported for embedded workspaces and tests; the product does not fabricate responses.
 
-The original `window.claude.complete()` bridge remains supported for embedded workspaces and tests. A real browser request using Claude Sonnet 4.6 Free was validated locally on 2026-10-08. The configured key’s catalog included only that model at the time; other model access still depends on the provider plan. The application never generates a fake response.
+Conversation history remains local under `univa-chats-v2:<user-id>`, limited to 30 conversations, with local search, rename, deletion confirmation and Markdown export. History is not synchronized across devices. Legacy anonymous history is not imported. Original attachment files belonging to deleted conversations are pruned. Server profile and preferences are separate from this local history.
 
-New replies appear with a client-side typewriter effect after the provider returns a complete response. Full content is saved immediately, and “Show full response” skips the animation. Saved conversations open without replaying it. Reduced-motion preferences and background tabs display the complete response immediately. The conversation follows new text until the reader scrolls up; Markdown, accents, and emoji remain supported.
+## UI and branding
 
-The sidebar uses shadcn/ui menus and dialogs with a searchable history, local renaming, confirmation before deletion, and an account menu. The desktop sidebar can collapse to an icon rail; its search control expands the sidebar and focuses the search field. Below 1,024 px, the same actions appear in the Chats drawer, opened from the bottom navigation. History stays on this device and is not synchronized.
+The public brand is UNUVIA, with the descriptor AI Workspace for Universities. The site uses the supplied university positioning and a 1,320 px maximum content width. Blue, green and gray colors support both themes. Inter is self-hosted under the SIL Open Font License; Georgia is used for selected editorial headings.
 
-The assistant has a neutral conversation layout with blue and green UNUVIA accents, a compact composer that expands with the message, and uncluttered university prompt shortcuts. On mobile, attachment, model, and send controls sit below the textarea with 44 px touch targets. Conversations have a return-to-latest button and a local Markdown download in the header menu. Assistant-only styles are scoped in `src/app/assistant/workspace.css`.
+shadcn/ui sources live in `src/components/ui`. Assistant styling is scoped in `src/app/assistant/workspace.css`; account/admin styling is in `src/app/account/account.css`. Below 1,024 px, the assistant has bottom navigation and a Chats drawer. The desktop sidebar collapses to an icon rail. Account/admin forms work at 320 px and use 44 px touch controls.
 
-Conversation history is stored under `univa-chats-v2:<user-id>` on this device, limited to 30 conversations per account. Legacy anonymous history is not imported into new accounts. This prevents another account’s conversations from appearing in the UI. Browser storage remains local and unencrypted; it does not sync across devices. Attachments sent in conversations are part of that history. Deleting a conversation removes its stored attachment text too.
-
-## Branding
-
-The public brand is **UNUVIA**, with the descriptor **AI Workspace for Universities**. The landing page and SEO metadata use the supplied university positioning. The maximum desktop content width is 1,320 px. Below 1,024 px, the site and assistant use a fixed bottom navigation with labeled touch controls and space for the home indicator. Inter is self-hosted under the SIL Open Font License for the interface; Georgia provides the wordmark, FAQ title and assistant welcome heading.
-
-Existing asset filenames, legacy HTML URLs, `UNIVA_*` script settings, browser history keys, the SQLite filename, and `contact@univa.ai` are preserved for compatibility. These are technical or contact identifiers, not the displayed product name. Historical screenshot files are reference artifacts.
-
-## Design system
-
-Official shadcn/ui sources live in `src/components/ui`: Button, Card, Badge, Dialog, Sheet, Tabs, Accordion, Input, Label, Select, Textarea, Alert, Tooltip, and Separator. `components.json` configures the `new-york` style and Tailwind 4.
-
-Themes use `next-themes` with CSS variables, a saved browser preference, and a script to apply the theme before painting. Fonts are self-hosted in `public/fonts`; no Google Fonts network request is needed.
+Existing asset filenames, old HTML redirects, browser storage keys, `UNIVA_*` script options and `contact@univa.ai` remain technical/contact identifiers for compatibility. The live UI uses UNUVIA.
 
 ## Checks
 
@@ -87,30 +104,22 @@ npm run check
 npm run build
 npm run test:api
 npx playwright install chromium
-npm run test:e2e -- --workers=1
+npm run test:e2e
 ```
 
-Playwright covers centered authentication at four widths, real email signup/login/logout, server access control, separate assistant windows, English content, responsive pages, theme persistence, authenticated Pro waitlist and origin rejection, model routing, attachments, account-separated history, history search and persisted renaming, deletion confirmations, desktop collapse, account menus, server API requests and retries, safe Markdown, and Axe accessibility in both themes. Isolated server tests exercise the actual APMIX handler with a mock provider and temporary SQLite database, including input validation, auth/origin checks, rate limits, and redacted provider errors. AI responses are mocked only in tests. Test accounts are stored in the local development database.
+A local PostgreSQL connection is required. API tests use temporary schemas in the configured database, run the real SQL/routes with mocked auth/provider HTTP, and remove their schemas afterward. Browser tests start the compiled app on port 4217 (override `UNIVA_TEST_PORT`), use a separate temporary PostgreSQL schema and mocked payment instructions, disable the live provider key and clean up afterward. They do not create accounts in the development schema or use real model credits. Build before browser tests; no existing development server needs to be stopped.
 
-To test without using the live APMIX configuration, stop the existing development server first, then start the test server with an empty key:
+The suite covers profile persistence and photo resizing, account isolation, password changes/deletion, manual payment review, duplicate protection, verified administrator access, expiry, model/rate entitlements, responsive UI, streaming, documents/images, chat artifacts, local history, Google configuration flows and Axe accessibility. Actual Google OAuth and real payment collection are outside these automated tests.
 
-```bash
-APMIX_API_KEY= BETTER_AUTH_URL=http://127.0.0.1:4217 UNIVA_TEST_PORT=4217 npm run test:e2e -- --workers=1
-```
-
-The suite mocks generation requests and the empty server key keeps the live provider catalog out of these tests. Next.js permits only one development server per checkout. Do not point this run at an already running server configured with a live key.
-
-Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` if Chromium is already installed. `UNIVA_TEST_PORT` selects the test port; `BETTER_AUTH_URL` must match it. Use `node scripts/screenshots.mjs` for screenshots, with optional `UNIVA_PREVIEW_URL` and `UNIVA_SCREENSHOT_DIR`. The screenshot script creates a local preview account.
+Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to use an existing Chromium installation. Screenshots can be generated with `scripts/screenshots.mjs`; that separate script creates a preview account on its target server.
 
 ## Production
+
+Set `DATABASE_URL`, a stable `BETTER_AUTH_SECRET`, the public `BETTER_AUTH_URL` and provider credentials in the host's private environment. Use a PostgreSQL database reachable from the Node.js host, with backups and appropriate table permissions. Application credentials must not be bundled into client code. Authentication/application tables initialize on first access.
 
 ```bash
 npm run build
 npm start
 ```
 
-Set a stable `BETTER_AUTH_SECRET` and the public `BETTER_AUTH_URL` before starting production. Generate a secret locally with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` and save it in your host’s secret settings. Keep `.env.local` out of version control.
-
-Use a Node.js host with a **persistent writable disk** for `AUTH_DATABASE_PATH` (default `.data/univa.sqlite`). This SQLite implementation is for a single application instance; do not use an ephemeral filesystem or multiple replicas sharing this file. For serverless or multi-instance hosting, configure a supported remote database adapter and migrations first. Back up the database with SQLite-aware tooling.
-
-The old HTML URLs redirect to `/` and `/assistant`. Original HTML files and assets remain in the repository for reference; the active application is in `src/`.
+Deployment to o2switch is a separate step: no production server, domain, database or payment destination has been changed by this local implementation.

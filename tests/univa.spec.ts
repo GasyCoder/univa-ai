@@ -1,6 +1,7 @@
 import { test as base, expect, type Page, type Cookie } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { readFile } from 'node:fs/promises';
+import { Pool } from 'pg';
 
 const baseURL = `http://127.0.0.1:${process.env.UNIVA_TEST_PORT || '4200'}`;
 const test = base.extend<{}, { account: { id: string; cookies: Cookie[] } }>({
@@ -8,7 +9,10 @@ const test = base.extend<{}, { account: { id: string; cookies: Cookie[] } }>({
     async ({ playwright }, use) => {
       const request = await playwright.request.newContext({
         baseURL,
-        extraHTTPHeaders: { Origin: baseURL },
+        extraHTTPHeaders: {
+          Origin: baseURL,
+          'x-forwarded-for': `192.0.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`,
+        },
       });
       const response = await request.post('/api/auth/sign-up/email', {
         data: {
@@ -19,11 +23,28 @@ const test = base.extend<{}, { account: { id: string; cookies: Cookie[] } }>({
       });
       expect(response.ok(), await response.text()).toBeTruthy();
       const result = await response.json();
+      if (!process.env.UNIVA_TEST_SERVER_MANAGED)
+        throw new Error('Run npm run test:e2e to use isolated PostgreSQL fixtures.');
+      const db = new Pool({ connectionString: process.env.DATABASE_URL });
+      await db.query(
+        "INSERT INTO subscription (user_id,plan,status,current_period_end) VALUES ($1,'pro','active',NOW()+INTERVAL '30 days')",
+        [result.user.id]
+      );
+      await db.query(
+        "INSERT INTO profile (user_id,default_model,theme) VALUES ($1,'claude-sonnet-5-5','light')",
+        [result.user.id]
+      );
+      await db.end();
       await use({ id: result.user.id, cookies: (await request.storageState()).cookies });
       await request.dispose();
     },
     { scope: 'worker' },
   ],
+});
+test.beforeEach(async ({ page }) => {
+  await page.context().setExtraHTTPHeaders({
+    'x-forwarded-for': `198.18.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`,
+  });
 });
 async function workspace(page: Page, cookies: Cookie[]) {
   await page.context().addCookies(cookies);
@@ -65,7 +86,7 @@ test('assistant requires an authenticated server session', async ({ page }) => {
     page.getByRole('dialog').getByRole('heading', { name: 'Log in.', exact: true })
   ).toBeVisible();
   await expect(page.locator('#chat-input')).toHaveCount(0);
-  const response = await page.request.post('/api/waitlist', { headers: { Origin: baseURL } });
+  const response = await page.request.get('/api/account');
   expect(response.status()).toBe(401);
   await page.keyboard.press('Escape');
   await expect(page).toHaveURL(baseURL + '/');
@@ -288,21 +309,23 @@ test.describe('mobile touch interactions', () => {
   });
 });
 
-test('pricing shows planned offers and waitlist is authenticated and idempotent', async ({
+test('pricing opens subscription settings and account writes reject foreign origins', async ({
   page,
   account,
 }) => {
   await page.context().addCookies(account.cookies);
   await page.goto('/');
   await expect(page.locator('#pricing')).toContainText('$12');
-  await expect(page.locator('#pricing')).toContainText('No payment collected.');
-  await page.getByRole('button', { name: 'Join Pro waitlist' }).click();
-  await expect(page.getByRole('status')).toContainText('You’re on the Pro waitlist');
-  await page.getByRole('button', { name: 'Join Pro waitlist' }).click();
-  await expect(page.getByRole('status')).toContainText('No payment required');
+  await expect(page.locator('#pricing')).toContainText('manual payment review');
+  await page.getByRole('button', { name: 'Get Pro', exact: true }).click();
+  await expect(page).toHaveURL(baseURL + '/account?tab=subscription');
+  await expect(page.getByRole('heading', { name: 'Your plan' })).toBeVisible();
   expect(
     (
-      await page.request.post('/api/waitlist', { headers: { Origin: 'https://untrusted.example' } })
+      await page.request.put('/api/account', {
+        headers: { Origin: 'https://untrusted.example' },
+        data: { name: 'Invalid change' },
+      })
     ).status()
   ).toBe(403);
 });
@@ -579,6 +602,8 @@ for (const [width, mode] of [
       },
       { id: account.id, mode }
     );
+    await page.context().addCookies(account.cookies);
+    await page.request.put('/api/account', { headers: { Origin: baseURL }, data: { theme: mode } });
     await workspace(page, account.cookies);
     const sidebar = page.locator(width < 1024 ? '#mobile-chat-sidebar' : '#chat-sidebar');
     const openMobile = async () => {
@@ -1086,6 +1111,8 @@ for (const mode of ['light', 'dark']) {
     await expect(page.getByRole('dialog')).toBeVisible();
     await audit();
     await page.keyboard.press('Escape');
+    await page.context().addCookies(account.cookies);
+    await page.request.put('/api/account', { headers: { Origin: baseURL }, data: { theme: mode } });
     await workspace(page, account.cookies);
     await audit();
     await page.locator('#chat-model').click();

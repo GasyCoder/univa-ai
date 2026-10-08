@@ -15,10 +15,12 @@ export default defineConfig({
       executablePath: process.env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'] || undefined,
     },
   },
-  webServer: {
-    command: `npm run dev -- --port ${port}`,
-    url: `http://127.0.0.1:${port}`,
-    reuseExistingServer: !process.env['CI'],
-    timeout: 120000,
-  },
+  webServer: process.env.UNIVA_TEST_SERVER_MANAGED
+    ? undefined
+    : {
+        command: `npm run dev -- --port ${port}`,
+        url: `http://127.0.0.1:${port}`,
+        reuseExistingServer: !process.env['CI'],
+        timeout: 120000,
+      },
 });

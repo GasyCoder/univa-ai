@@ -1,5 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { proPrice, type Price, type AccountData } from '@/lib/plans';
+import { accountRequest } from '@/lib/account-client';
+import { useTheme } from 'next-themes';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -22,7 +25,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from './ui/accordion';
 import { Sheet, SheetContent, SheetTitle, SheetDescription, SheetTrigger } from './ui/sheet';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
-import { Alert, AlertDescription } from './ui/alert';
 import { AccessDialog, type AuthMode } from './access-dialog';
 import { ThemeToggle } from './theme-provider';
 import { MobileNavigation } from './mobile-navigation';
@@ -30,39 +32,55 @@ import { AssistantLink, assistantUrl } from './assistant-link';
 import { authClient } from '@/lib/auth-client';
 import { faqs, useCases } from '@/lib/landing-data';
 import { Icon } from './icon';
+import { Alert, AlertDescription } from './ui/alert';
 
 export function Landing() {
+  const { setTheme } = useTheme();
+  const themeChanged = useRef(false);
+  const [themeError, setThemeError] = useState('');
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('signup');
   const [menuOpen, setMenuOpen] = useState(false);
   const [legal, setLegal] = useState<'privacy' | 'terms' | null>(null);
   const [proIntent, setProIntent] = useState(false);
-  const [waitlist, setWaitlist] = useState('');
-  const [joining, setJoining] = useState(false);
+  const [price, setPrice] = useState<Price>(proPrice(''));
   const { data: session, isPending } = authClient.useSession();
   const returnFocus = useRef<HTMLElement | null>(null);
   const followedMenuLink = useRef(false);
-  const autoJoined = useRef(false);
   useEffect(() => {
-    if (
-      !session ||
-      autoJoined.current ||
-      new URLSearchParams(window.location.search).get('join') !== 'pro'
-    )
-      return;
-    autoJoined.current = true;
-    fetch('/api/waitlist', { method: 'POST' })
-      .then((response) =>
-        setWaitlist(
-          response.ok
-            ? 'You’re on the Pro waitlist. No payment required.'
-            : 'We couldn’t join the waitlist. Please try again.'
-        )
-      )
-      .catch(() => setWaitlist('Unable to connect. Please try again.'));
-    window.history.replaceState(null, '', '/#pricing');
-    document.getElementById('pricing')?.scrollIntoView();
-  }, [session]);
+    const controller = new AbortController();
+    fetch('/api/pricing', { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((result) => {
+        if (result) setPrice(result.price);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+  useEffect(() => {
+    if (!session) return;
+    let ignore = false;
+    accountRequest<AccountData>('/api/account')
+      .then((data) => {
+        if (!ignore && !themeChanged.current) setTheme(data.profile.theme);
+      })
+      .catch(() => {});
+    return () => {
+      ignore = true;
+    };
+  }, [session?.user.id, setTheme]);
+  async function saveTheme(theme: 'light' | 'dark') {
+    themeChanged.current = true;
+    setThemeError('');
+    if (!session) return;
+    try {
+      await accountRequest('/api/account', { theme }, 'PUT');
+    } catch {
+      setThemeError(
+        'Your theme changed on this device, but could not be saved to your account. Please try again.'
+      );
+    }
+  }
   function openAuth(mode: AuthMode, pro = false) {
     if (session && !pro) {
       window.open('/assistant', '_blank', 'noopener,noreferrer');
@@ -75,25 +93,12 @@ export function Landing() {
     setAuthOpen(true);
     setMenuOpen(false);
   }
-  async function joinPro() {
+  function joinPro() {
     if (!session) {
       openAuth('signup', true);
       return;
     }
-    setJoining(true);
-    setWaitlist('');
-    try {
-      const response = await fetch('/api/waitlist', { method: 'POST' });
-      setWaitlist(
-        response.ok
-          ? 'You’re on the Pro waitlist. No payment required.'
-          : 'We couldn’t join the waitlist. Please try again.'
-      );
-    } catch {
-      setWaitlist('Unable to connect. Please try again.');
-    } finally {
-      setJoining(false);
-    }
+    window.location.assign('/account?tab=subscription');
   }
   const links = [
     { label: 'Product', href: '#product' },
@@ -149,7 +154,7 @@ export function Landing() {
             {navLinks}
           </nav>
           <div className="saas-nav-actions">
-            <ThemeToggle />
+            <ThemeToggle onThemeChange={saveTheme} />
             <div className="saas-account-actions">{accountActions}</div>
             <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
               <MobileNavigation label="Mobile site navigation">
@@ -171,7 +176,7 @@ export function Landing() {
                     <span>Workspace</span>
                   </AssistantLink>
                 </Button>
-                <ThemeToggle label="Theme" className="mobile-nav-item" />
+                <ThemeToggle label="Theme" className="mobile-nav-item" onThemeChange={saveTheme} />
                 <SheetTrigger asChild>
                   <Button variant="ghost" className="mobile-nav-item" aria-label="Open menu">
                     <Menu size={21} />
@@ -198,6 +203,11 @@ export function Landing() {
         </div>
       </header>
       <main id="main">
+        {themeError && (
+          <Alert className="saas-container">
+            <AlertDescription role="alert">{themeError}</AlertDescription>
+          </Alert>
+        )}
         <section className="saas-hero saas-container">
           <div className="saas-hero-copy">
             <span className="saas-eyebrow">UNUVIA for universities</span>
@@ -431,7 +441,7 @@ export function Landing() {
             <div className="saas-section-heading">
               <span className="saas-eyebrow">Plans & pricing</span>
               <h2>Plans for individuals and teams.</h2>
-              <p>Start with Free. Pro and Team features are in development.</p>
+              <p>Start with Free. Upgrade to Pro when you need more model access.</p>
             </div>
             <div className="saas-pricing-grid">
               <Card className="saas-price-card">
@@ -447,8 +457,9 @@ export function Landing() {
                   {[
                     'Personal workspace',
                     'Local conversation history',
-                    'Text document attachments',
-                    'Model selection',
+                    'Documents and image text extraction',
+                    'Claude Sonnet 4.6 Free',
+                    '10 requests per minute',
                   ].map((x) => (
                     <li key={x}>
                       <Check size={16} />
@@ -459,22 +470,23 @@ export function Landing() {
                 <small>Model service access is required for responses.</small>
               </Card>
               <Card className="saas-price-card saas-featured-price">
-                <Badge>Coming next</Badge>
+                <Badge>More model access</Badge>
                 <span className="saas-plan-name">Pro</span>
                 <p>For a more connected workflow.</p>
                 <div className="saas-price">
-                  $12<span>/ month</span>
+                  {price.formatted}
+                  <span>/ 30 days</span>
                 </div>
-                <Button className="saas-primary" disabled={joining || isPending} onClick={joinPro}>
-                  {joining ? 'Joining…' : 'Join Pro waitlist'}
+                <Button className="saas-primary" disabled={isPending} onClick={joinPro}>
+                  Get Pro
                   <ArrowRight size={16} />
                 </Button>
                 <ul>
                   {[
                     'Everything in Free',
-                    'Planned: history across devices',
-                    'Planned: expanded document support',
-                    'Planned: project organization',
+                    'All connected models',
+                    '30 requests per minute',
+                    '30 days of Pro access',
                   ].map((x) => (
                     <li key={x}>
                       <Check size={16} />
@@ -482,7 +494,10 @@ export function Landing() {
                     </li>
                   ))}
                 </ul>
-                <small>Planned price in USD. No payment collected.</small>
+                <small>
+                  Activated after manual payment review. Model availability depends on the connected
+                  service.
+                </small>
               </Card>
               <Card className="saas-price-card">
                 <span className="saas-plan-name">Team</span>
@@ -509,14 +524,9 @@ export function Landing() {
                 <small>Custom pricing. Availability by agreement.</small>
               </Card>
             </div>
-            {waitlist && (
-              <Alert className="saas-waitlist-status">
-                <AlertDescription role="status">{waitlist}</AlertDescription>
-              </Alert>
-            )}
             <p className="saas-pricing-note">
-              No hidden checkout. Free is available; Pro and Team expansion features are in
-              development.
+              Pro is activated after payment verification. No automatic renewal. Check payment
+              availability in your account before paying.
             </p>
           </div>
         </section>
@@ -578,7 +588,7 @@ export function Landing() {
             <Button variant="link" onClick={() => setLegal('terms')}>
               Terms
             </Button>
-            <ThemeToggle />
+            <ThemeToggle onThemeChange={saveTheme} />
           </div>
         </div>
       </footer>
@@ -620,9 +630,9 @@ export function Landing() {
                 </p>
                 <h3>Your choices</h3>
                 <p>
-                  Your theme preference is saved on this device. Joining the Pro waitlist saves your
-                  account ID and the date you joined. Contact contact@univa.ai with account or data
-                  questions.
+                  Profile, workspace preferences, subscription periods and payment references are
+                  saved on the server. You can update your profile or delete your account in
+                  Settings. Contact contact@univa.ai with account or data questions.
                 </p>
               </>
             ) : (
@@ -630,8 +640,9 @@ export function Landing() {
                 <h3>Current availability</h3>
                 <p>
                   The personal workspace is free. Responses depend on an available model service.
-                  Pro is a waitlist, and its displayed price is planned; no payment is collected
-                  here. Team features require a separate agreement.
+                  Pro is activated manually after an administrator verifies your payment. Payments
+                  are made outside this application using the configured instructions. Team features
+                  require a separate agreement.
                 </p>
                 <h3>Your work</h3>
                 <p>

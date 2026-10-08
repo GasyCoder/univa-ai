@@ -33,7 +33,6 @@ export function AccessDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [joined, setJoined] = useState(false);
   const [google, setGoogle] = useState<boolean | null>(null);
   const [providerError, setProviderError] = useState(false);
   const [providerAttempt, setProviderAttempt] = useState(0);
@@ -42,7 +41,6 @@ export function AccessDialog({
       setMode(initialMode);
       setError('');
       setSuccess(false);
-      setJoined(false);
     }
   }, [open, initialMode]);
   useEffect(() => {
@@ -92,11 +90,8 @@ export function AccessDialog({
         router.refresh();
       } else {
         if (proIntent) {
-          try {
-            setJoined((await fetch('/api/waitlist', { method: 'POST' })).ok);
-          } catch {
-            setJoined(false);
-          }
+          router.push('/account?tab=subscription');
+          return;
         }
         setSuccess(true);
       }
@@ -116,11 +111,19 @@ export function AccessDialog({
         callbackURL: gate
           ? window.location.pathname + window.location.search
           : proIntent
-            ? '/?join=pro'
+            ? '/account?tab=subscription'
             : '/',
       });
       if (result.error) {
-        setError('Google sign-in could not start. Please try again or use email.');
+        setError(
+          result.error.status === 429
+            ? 'Too many sign-in attempts. Please wait a moment and try Google again.'
+            : result.error.code === 'INVALID_ORIGIN' || result.error.code === 'INVALID_CALLBACK_URL'
+              ? 'The sign-in address has changed. Reload this page and try Google again.'
+              : result.error.status === 503
+                ? 'Sign-in is temporarily unavailable. Please try again shortly.'
+                : 'Google sign-in could not start. Please try again or use email.'
+        );
         setBusy(false);
       }
     } catch {
@@ -156,13 +159,9 @@ export function AccessDialog({
         </DialogTitle>
         <DialogDescription>
           {success
-            ? joined
-              ? 'You’re on the Pro waitlist. Enjoy your free workspace while you wait.'
-              : proIntent
-                ? 'Your account is ready. Return to Pricing to retry joining the Pro waitlist.'
-                : 'Your account is ready. Open your workspace to get started.'
+            ? 'Your account is ready. Open your workspace to get started.'
             : proIntent
-              ? 'Create an account or log in to join the Pro waitlist. No payment required.'
+              ? 'Create an account or log in to view Pro payment options.'
               : mode === 'signup'
                 ? 'Create your free account. Any email address works.'
                 : 'Enter your email and password to continue.'}

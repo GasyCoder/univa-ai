@@ -4,6 +4,9 @@ const messages: Record<string, string> = {
   invalid_request: 'This conversation could not be sent. Start a new chat or shorten your message.',
   context_too_large: 'This conversation is too long. Start a new chat or use a shorter document.',
   provider_auth: 'The assistant connection needs attention. Please contact the workspace owner.',
+  database_unavailable: 'Your workspace is temporarily unavailable. Please try again shortly.',
+  model_not_allowed:
+    'This model needs an active Pro plan. Choose a Free model or open your subscription settings.',
   model_unavailable:
     'This model is unavailable for this workspace. Choose another model and try again.',
   quota_exhausted: 'The workspace has reached its usage limit. Please contact the workspace owner.',

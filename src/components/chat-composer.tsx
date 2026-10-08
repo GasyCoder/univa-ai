@@ -405,7 +405,13 @@ export function ChatComposer({
                     <ChevronDown aria-hidden="true" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent side="bottom" align="end" className="model-menu">
+                <DropdownMenuContent
+                  side="bottom"
+                  align="end"
+                  className="model-menu"
+                  tabIndex={0}
+                  aria-label="Choose an AI model"
+                >
                   <DropdownMenuRadioGroup value={model} onValueChange={pickModel}>
                     {MODELS.filter((item) => !item.legacy).map(modelOption)}
                   </DropdownMenuRadioGroup>
