@@ -12,6 +12,8 @@ import {
   Plus,
   Sparkles,
   LogOut,
+  CreditCard,
+  PanelsTopLeft,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -23,6 +25,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dial
 import { Alert, AlertDescription } from './ui/alert';
 import { AccessDialog, type AuthMode } from './access-dialog';
 import { ThemeToggle } from './theme-provider';
+import { MobileNavigation } from './mobile-navigation';
 import { AssistantLink, assistantUrl } from './assistant-link';
 import { authClient } from '@/lib/auth-client';
 import { faqs, useCases } from '@/lib/landing-data';
@@ -38,6 +41,7 @@ export function Landing() {
   const [joining, setJoining] = useState(false);
   const { data: session, isPending } = authClient.useSession();
   const returnFocus = useRef<HTMLElement | null>(null);
+  const followedMenuLink = useRef(false);
   const autoJoined = useRef(false);
   useEffect(() => {
     if (
@@ -98,7 +102,14 @@ export function Landing() {
     { label: 'FAQ', href: '#faq' },
   ];
   const navLinks = links.map((link) => (
-    <a key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>
+    <a
+      key={link.href}
+      href={link.href}
+      onClick={() => {
+        followedMenuLink.current = menuOpen;
+        setMenuOpen(false);
+      }}
+    >
       {link.label}
     </a>
   ));
@@ -141,17 +152,42 @@ export function Landing() {
             <ThemeToggle />
             <div className="saas-account-actions">{accountActions}</div>
             <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="saas-mobile-menu"
-                  aria-label="Open menu"
-                >
-                  <Menu size={21} />
+              <MobileNavigation label="Mobile site navigation">
+                <Button variant="ghost" asChild className="mobile-nav-item">
+                  <a href="#product">
+                    <PanelsTopLeft size={21} />
+                    <span>Product</span>
+                  </a>
                 </Button>
-              </SheetTrigger>
-              <SheetContent className="saas-mobile-sheet">
+                <Button variant="ghost" asChild className="mobile-nav-item">
+                  <a href="#pricing">
+                    <CreditCard size={21} />
+                    <span>Pricing</span>
+                  </a>
+                </Button>
+                <Button variant="ghost" asChild className="mobile-nav-item mobile-nav-primary">
+                  <AssistantLink>
+                    <MessageSquare size={21} />
+                    <span>Workspace</span>
+                  </AssistantLink>
+                </Button>
+                <ThemeToggle label="Theme" className="mobile-nav-item" />
+                <SheetTrigger asChild>
+                  <Button variant="ghost" className="mobile-nav-item" aria-label="Open menu">
+                    <Menu size={21} />
+                    <span>Menu</span>
+                  </Button>
+                </SheetTrigger>
+              </MobileNavigation>
+              <SheetContent
+                className="saas-mobile-sheet"
+                onCloseAutoFocus={(event) => {
+                  if (followedMenuLink.current) {
+                    event.preventDefault();
+                    followedMenuLink.current = false;
+                  }
+                }}
+              >
                 <SheetTitle>Explore UNUVIA</SheetTitle>
                 <SheetDescription>AI Workspace for Universities</SheetDescription>
                 <nav aria-label="Mobile navigation">{navLinks}</nav>
@@ -164,7 +200,7 @@ export function Landing() {
       <main id="main">
         <section className="saas-hero saas-container">
           <div className="saas-hero-copy">
-            <span className="saas-eyebrow">AI for Higher Education</span>
+            <span className="saas-eyebrow">UNUVIA for universities</span>
             <h1>
               One AI workspace <br />
               <span>for the entire university.</span>
@@ -194,7 +230,7 @@ export function Landing() {
               </span>
               <span>
                 <Check size={14} />
-                Your own pace
+                Free to get started
               </span>
             </div>
           </div>
@@ -214,7 +250,8 @@ export function Landing() {
                 </span>
                 <small>YOUR WORKSPACE</small>
                 <span className="active">
-                  <MessageSquare size={14} />A fresh perspective
+                  <MessageSquare size={14} />
+                  Research outline
                 </span>
                 <span>
                   <FileText size={14} />
@@ -224,8 +261,8 @@ export function Landing() {
               <div className="saas-preview-chat">
                 <div className="saas-preview-greeting">
                   <Sparkles size={22} />
-                  <h2>AI Workspace for Universities</h2>
-                  <p>What would you like to work on?</p>
+                  <h2>Your university workspace</h2>
+                  <p>Questions, notes and documents, in one place.</p>
                 </div>
                 <div className="preview-prompt">
                   Help me turn my research notes into a clear outline.
@@ -267,9 +304,9 @@ export function Landing() {
         </div>
         <section id="product" className="saas-section saas-container">
           <div className="saas-section-heading">
-            <span className="saas-eyebrow">LESS FRICTION. MORE FOCUS.</span>
-            <h2>One place to make progress.</h2>
-            <p>Keep your question, context, and conversation together.</p>
+            <span className="saas-eyebrow">The workspace</span>
+            <h2>Work with your questions and documents.</h2>
+            <p>Ask a question, attach your notes and keep your conversations together.</p>
           </div>
           <div className="saas-feature-grid">
             {[
@@ -282,14 +319,14 @@ export function Landing() {
               {
                 icon: FileText,
                 number: '02',
-                title: 'Bring your context',
-                text: 'Attach a text, Markdown, or CSV document. Ask about what matters, with your source material close at hand.',
+                title: 'Add your documents',
+                text: 'Attach a text, Markdown or CSV file and ask questions about its contents.',
               },
               {
                 icon: Layers,
                 number: '03',
-                title: 'Choose your approach',
-                text: 'Switch between models for quick tasks or deeper reasoning. Model availability follows your connected service.',
+                title: 'Choose a model',
+                text: 'Select a model for your task. Available models depend on your connected service.',
               },
             ].map((feature) => (
               <Card className="saas-feature" key={feature.title}>
@@ -306,8 +343,8 @@ export function Landing() {
         <section id="use-cases" className="saas-use-section">
           <div className="saas-container">
             <div className="saas-section-heading">
-              <span className="saas-eyebrow">BUILT FOR YOUR UNIVERSITY COMMUNITY</span>
-              <h2>One workspace. Every university role.</h2>
+              <span className="saas-eyebrow">For your university</span>
+              <h2>Study, teach, research and write.</h2>
             </div>
             <Tabs defaultValue="Learning" className="saas-use-tabs">
               <TabsList>
@@ -343,10 +380,11 @@ export function Landing() {
                     </div>
                     <div className="saas-prompt-example">
                       <span>
-                        <Sparkles size={18} />A starting point
+                        <FileText size={18} />
+                        Example question
                       </span>
                       <blockquote>“{item.prompt}”</blockquote>
-                      <p>Your expertise shapes what comes next.</p>
+                      <p>Edit this question to suit your course or project.</p>
                     </div>
                   </Card>
                 </TabsContent>
@@ -356,13 +394,9 @@ export function Landing() {
         </section>
         <section className="saas-section saas-container saas-how">
           <div>
-            <span className="saas-eyebrow">AI WORKSPACE FOR UNIVERSITIES</span>
-            <h2>
-              Simple to start.
-              <br />
-              Easy to come back to.
-            </h2>
-            <p>Create an account, open your workspace, and make it yours.</p>
+            <span className="saas-eyebrow">Getting started</span>
+            <h2>Your workspace in three steps.</h2>
+            <p>No university email address required.</p>
             <Button variant="outline" onClick={() => openAuth('signup')}>
               Create your account <ArrowRight size={16} />
             </Button>
@@ -370,7 +404,7 @@ export function Landing() {
           <ol>
             {[
               {
-                title: 'Make it yours',
+                title: 'Create an account',
                 text: 'Register with Google or any email address. No university account needed.',
               },
               {
@@ -378,8 +412,8 @@ export function Landing() {
                 text: 'Pick a role, choose a model, and bring a question or document.',
               },
               {
-                title: 'Keep the thread',
-                text: 'Revisit your local conversations and build on your thinking.',
+                title: 'Find your previous work',
+                text: 'Your conversations are saved in this browser so you can return to them.',
               },
             ].map((step, index) => (
               <li key={step.title}>
@@ -395,9 +429,9 @@ export function Landing() {
         <section id="pricing" className="saas-pricing-section">
           <div className="saas-container">
             <div className="saas-section-heading">
-              <span className="saas-eyebrow">A PLAN FOR YOUR NEXT STEP</span>
-              <h2>Start free. Grow when you’re ready.</h2>
-              <p>A free workspace today. More possibilities on the way.</p>
+              <span className="saas-eyebrow">Plans & pricing</span>
+              <h2>Plans for individuals and teams.</h2>
+              <p>Start with Free. Pro and Team features are in development.</p>
             </div>
             <div className="saas-pricing-grid">
               <Card className="saas-price-card">
@@ -488,15 +522,11 @@ export function Landing() {
         </section>
         <section id="faq" className="saas-section saas-container saas-faq">
           <div>
-            <span className="saas-eyebrow">GOOD QUESTIONS</span>
-            <h2>
-              A few things
-              <br />
-              you might be wondering.
-            </h2>
-            <p>Something else on your mind?</p>
+            <span className="saas-eyebrow">Help & support</span>
+            <h2>Frequently asked questions</h2>
+            <p>Need help with your account or workspace?</p>
             <a className="saas-text-link" href="mailto:contact@univa.ai">
-              Talk to us <ArrowUpRight size={16} />
+              Contact us <ArrowUpRight size={16} />
             </a>
           </div>
           <Accordion type="single" collapsible>
