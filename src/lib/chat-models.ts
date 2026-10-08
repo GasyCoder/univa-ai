@@ -11,6 +11,7 @@ export interface Chat {
   messages: ChatMessage[];
 }
 export interface Attachment {
+  truncated?: boolean;
   name: string;
   text: string;
 }
@@ -65,8 +66,8 @@ export interface AssistantModel {
   legacy?: boolean;
 }
 
-// Claude API identifiers verified against the official model catalog on 2026-10-07.
-// Availability for the user is determined by the connected assistant service.
+// API identifiers checked against the APMIX catalog on 2026-10-08.
+// APMIX plan permissions are enforced by the provider; UNUVIA never substitutes models.
 export const MODELS: AssistantModel[] = [
   {
     id: 'claude-sonnet-5-5',
@@ -97,12 +98,19 @@ export const MODELS: AssistantModel[] = [
     icon: 'clock',
   },
   {
-    id: 'claude-sonnet-4-5',
-    label: 'Claude Sonnet 4.5',
+    id: 'claude-sonnet-4-6',
+    label: 'Claude Sonnet 4.6',
     description: 'For services using this earlier version.',
     badge: 'Previous version',
     icon: 'clock',
     legacy: true,
+  },
+  {
+    id: 'claude-sonnet-4-6-free',
+    label: 'Claude Sonnet 4.6 Free',
+    description: 'Available on GasyCoderAI, within your workspace limits.',
+    badge: 'Free plan',
+    icon: 'book',
   },
 ];
 
