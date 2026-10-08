@@ -3,6 +3,8 @@ import { headers } from 'next/headers';
 import { getAuth } from '@/lib/auth';
 import { Assistant } from '@/components/assistant';
 import { AuthGate } from '@/components/auth-gate';
+import { getApmixModelIds } from '@/lib/apmix';
+import './workspace.css';
 export const metadata: Metadata = {
   title: 'UNUVIA — AI Workspace for Universities',
   robots: { index: false, follow: false },
@@ -14,6 +16,7 @@ export default async function AssistantPage() {
     <Assistant
       key={session.user.id}
       user={{ id: session.user.id, name: session.user.name, email: session.user.email }}
+      availableModels={await getApmixModelIds()}
     />
   ) : (
     <AuthGate />
