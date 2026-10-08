@@ -14,6 +14,7 @@ export const EXPORTS: Record<string, { mime: string; ext: string }> = {
 export const DOWNLOADS: Record<string, string> = {
   'application/pdf': 'pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
   'text/plain': 'txt',
   'text/markdown': 'md',
   'text/csv': 'csv',

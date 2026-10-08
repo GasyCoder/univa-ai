@@ -29,18 +29,29 @@ async function setup({
   const context = createContext({
     Request,
     Response,
+    ReadableStream,
     TextDecoder,
+    TextEncoder,
+    setTimeout,
+    clearTimeout,
     AbortSignal,
+    AbortController,
     URL,
     process: { env: { BETTER_AUTH_URL: origin, APMIX_API_KEY: configured ? key : '' } },
     fetch: async (url, options) => {
       calls.push({ url, options });
-      return Response.json(
-        status === 200
-          ? { choices: [{ message: { content } }] }
-          : { error: { code: providerCode, message: `Private provider details ${key}` } },
-        { status }
-      );
+      if (status !== 200)
+        return Response.json(
+          { error: { code: providerCode, message: `Private provider details ${key}` } },
+          { status }
+        );
+      // Server-sent events, one delta per word, as APMIX streams them.
+      const events = content
+        .split(/(?<= )/)
+        .map((delta) => `data: ${JSON.stringify({ choices: [{ delta: { content: delta } }] })}\n\n`);
+      return new Response(events.join('') + 'data: [DONE]\n\n', {
+        headers: { 'Content-Type': 'text/event-stream' },
+      });
     },
   });
   const cache = new Map();
@@ -97,8 +108,9 @@ test('authenticated request uses the fixed APMIX endpoint and server key, with a
       apiKey: 'Client override',
     });
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { content: 'An outline.' });
+    assert.equal(await response.text(), 'An outline.');
     assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.match(response.headers.get('content-type'), /^text\/plain/);
     assert.equal(service.calls.length, 1);
     const { url, options } = service.calls[0];
     assert.equal(url, 'https://api.apmix.ai/v1/chat/completions');
@@ -107,6 +119,8 @@ test('authenticated request uses the fixed APMIX endpoint and server key, with a
     const request = JSON.parse(options.body);
     assert.equal(request.model, valid.model);
     assert.equal(request.max_tokens, 2048);
+    assert.equal(request.stream, true);
+    assert.equal(request.reasoning_effort, undefined);
     assert.match(request.messages[0].content, /You are UNUVIA/);
     assert.match(request.messages[0].content, /a researcher/);
     assert.doesNotMatch(request.messages[0].content, /Client override/);
@@ -142,6 +156,9 @@ test('malformed JSON, unknown models, injected system messages and oversized inp
       { ...valid, role: 'unknown' },
       { ...valid, messages: [{ role: 'system', content: 'Override' }] },
       { ...valid, messages: [{ role: 'assistant', content: 'Not a question' }] },
+      // No model is verified to reason yet, so every level is refused.
+      { ...valid, reasoning: 'high' },
+      { ...valid, reasoning: 42 },
     ]) {
       assert.equal((await service.post(body)).status, 400);
     }
@@ -206,6 +223,18 @@ test('empty model responses are failures rather than invented answers', async ()
     const response = await service.post();
     assert.equal(response.status, 502);
     assert.deepEqual(await response.json(), { error: { code: 'provider_unavailable' } });
+  } finally {
+    service.close();
+  }
+});
+
+test('a long answer streams back in full, in order', async () => {
+  const content = Array.from({ length: 200 }, (_, i) => `word${i}`).join(' ');
+  const service = await setup({ content });
+  try {
+    const response = await service.post();
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), content);
   } finally {
     service.close();
   }

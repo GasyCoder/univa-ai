@@ -2,13 +2,29 @@
 
 import { DOCUMENT_ACCEPT, DOCUMENT_HINT } from '@/lib/extract-document';
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { ArrowUp, FileText, LoaderCircle, Paperclip, Plus, X } from 'lucide-react';
+import {
+  ArrowUp,
+  Check,
+  ChevronDown,
+  FileText,
+  LoaderCircle,
+  Mic,
+  Paperclip,
+  Plus,
+  Square,
+  X,
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { DrivePicker, GoogleDriveMark } from './drive-picker';
@@ -17,19 +33,38 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { MODELS, type Attachment, type AssistantModel } from '@/lib/chat-models';
-import { Icon } from './icon';
+import {
+  MODELS,
+  REASONING_LEVELS,
+  reasoningLevelsFor,
+  type Attachment,
+  type AssistantModel,
+  type ReasoningLevel,
+} from '@/lib/chat-models';
+
+// The Web Speech API is not in TypeScript's DOM types; only what is used here is declared.
+interface Recognition {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult:
+    | ((event: {
+        resultIndex: number;
+        results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }>;
+      }) => void)
+    | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+const recognitionClass = () =>
+  typeof window === 'undefined'
+    ? undefined
+    : (((window as unknown as Record<string, unknown>).SpeechRecognition ??
+        (window as unknown as Record<string, unknown>).webkitSpeechRecognition) as
+        (new () => Recognition) | undefined);
 
 interface ComposerProps {
   inputRef: RefObject<HTMLTextAreaElement | null>;
@@ -40,6 +75,9 @@ interface ComposerProps {
   availableModels: string[] | null;
   onModelChange: (value: string) => void;
   onModelOpenChange: (open: boolean) => void;
+  reasoning: ReasoningLevel | null;
+  onReasoningChange: (value: ReasoningLevel | null) => void;
+  onStop: () => void;
   file: Attachment | null;
   onRemoveFile: () => void;
   onFile: (file: File) => Promise<void>;
@@ -59,6 +97,9 @@ export function ChatComposer({
   availableModels,
   onModelChange,
   onModelOpenChange,
+  reasoning,
+  onReasoningChange,
+  onStop,
   file,
   onRemoveFile,
   onFile,
@@ -79,6 +120,52 @@ export function ChatComposer({
       .catch(() => setDriveEnabled(false));
   }, []);
   const selectedModel = MODELS.find((item) => item.id === model) ?? MODELS[0];
+  const supportedReasoning = reasoningLevelsFor(model);
+  // Dictation with the browser's own speech recognition, where it exists.
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [listening, setListening] = useState(false);
+  const recognition = useRef<Recognition | null>(null);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  useEffect(() => {
+    setVoiceSupported(!!recognitionClass());
+    return () => recognition.current?.stop();
+  }, []);
+  function toggleVoice() {
+    if (listening) {
+      recognition.current?.stop();
+      return;
+    }
+    const Speech = recognitionClass();
+    if (!Speech) return;
+    const session = new Speech();
+    session.lang = navigator.language;
+    session.continuous = true;
+    session.interimResults = false;
+    session.onresult = (event) => {
+      let heard = '';
+      for (let i = event.resultIndex; i < event.results.length; i++)
+        if (event.results[i].isFinal) heard += event.results[i][0].transcript;
+      if (heard.trim())
+        onDraftChange(
+          `${draftRef.current}${draftRef.current && !/\s$/.test(draftRef.current) ? ' ' : ''}${heard.trim()}`.slice(
+            0,
+            10000
+          )
+        );
+    };
+    session.onend = session.onerror = () => {
+      setListening(false);
+      recognition.current = null;
+    };
+    recognition.current = session;
+    setListening(true);
+    try {
+      session.start();
+    } catch {
+      setListening(false);
+    }
+  }
   // Like Claude/ChatGPT: a file dragged anywhere over the window can be dropped.
   // Refs keep one set of listeners for the whole drag (the parent recreates onFile each render).
   const blockedRef = useRef(false);
@@ -132,16 +219,13 @@ export function ChatComposer({
   function modelOption(item: AssistantModel) {
     const available = availableModels === null || availableModels.includes(item.id);
     return (
-      <SelectItem
+      <DropdownMenuRadioItem
         key={item.id}
         value={item.id}
         textValue={item.label}
         className="model-option"
         disabled={!available}
       >
-        <span className={`model-option-icon ${item.icon}`}>
-          <Icon name={item.icon} />
-        </span>
         <span className="model-option-copy">
           <span className="model-option-heading">
             <strong>{item.label}</strong>
@@ -149,9 +233,19 @@ export function ChatComposer({
           </span>
           <span className="model-option-description">{item.description}</span>
         </span>
-      </SelectItem>
+        {item.id === model && <Check className="model-option-check" aria-hidden="true" />}
+      </DropdownMenuRadioItem>
     );
   }
+  function pickModel(value: string) {
+    if (
+      MODELS.some((item) => item.id === value) &&
+      (availableModels === null || availableModels.includes(value))
+    )
+      onModelChange(value);
+  }
+  const reasoningLabel = REASONING_LEVELS.find((level) => level.id === reasoning)?.label;
+  const reasoningOffered = Object.keys(supportedReasoning).length > 0;
   return (
     <div className="composer-block">
       {dragging && (
@@ -293,58 +387,136 @@ export function ChatComposer({
           <div className="composer-toolbar">
             <div className="composer-options">
               <Label className="sr-only" htmlFor="chat-model">
-                AI model
+                AI model and reasoning effort
               </Label>
-              <Select
-                value={model}
-                onOpenChange={onModelOpenChange}
-                onValueChange={(value) => {
-                  if (
-                    MODELS.some((item) => item.id === value) &&
-                    (availableModels === null || availableModels.includes(value))
-                  )
-                    onModelChange(value);
-                }}
-                disabled={loading}
-              >
-                <SelectTrigger id="chat-model" className="model-control">
-                  <span className="model-trigger-icon">
-                    <Icon name={selectedModel.icon} />
-                  </span>
-                  <SelectValue>{selectedModel.label}</SelectValue>
-                </SelectTrigger>
-                <SelectContent position="popper" side="bottom" align="start" className="model-menu">
-                  <SelectGroup>
-                    <SelectLabel>Choose your model</SelectLabel>
+              {/* One menu for the model and its effort, as in Claude: two pickers side by side crowded the bar. */}
+              <DropdownMenu onOpenChange={onModelOpenChange}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    id="chat-model"
+                    className="model-control"
+                    disabled={loading}
+                  >
+                    <span className="model-control-label">{selectedModel.label}</span>
+                    {reasoningLabel && (
+                      <span className="model-control-effort">{reasoningLabel}</span>
+                    )}
+                    <ChevronDown aria-hidden="true" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="bottom" align="end" className="model-menu">
+                  <DropdownMenuRadioGroup value={model} onValueChange={pickModel}>
                     {MODELS.filter((item) => !item.legacy).map(modelOption)}
-                  </SelectGroup>
-                  <SelectSeparator />
-                  <SelectGroup>
-                    <SelectLabel>Other versions</SelectLabel>
-                    {MODELS.filter((item) => item.legacy).map(modelOption)}
-                  </SelectGroup>
+                  </DropdownMenuRadioGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="model-menu-row" disabled={!reasoningOffered}>
+                      <span>Effort</span>
+                      <span className="model-menu-row-value">
+                        {reasoningOffered ? (reasoningLabel ?? 'Default') : 'Not available'}
+                      </span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="model-menu model-submenu">
+                      <DropdownMenuRadioGroup
+                        value={reasoning ?? 'default'}
+                        onValueChange={(value) =>
+                          onReasoningChange(
+                            value in supportedReasoning ? (value as ReasoningLevel) : null
+                          )
+                        }
+                      >
+                        {[
+                          {
+                            id: 'default',
+                            label: 'Default',
+                            description: 'The model decides how long to think.',
+                          },
+                          ...REASONING_LEVELS.filter((level) => level.id in supportedReasoning),
+                        ].map((level) => (
+                          <DropdownMenuRadioItem
+                            key={level.id}
+                            value={level.id}
+                            textValue={level.label}
+                            className="model-option"
+                          >
+                            <span className="model-option-copy">
+                              <strong>{level.label}</strong>
+                              <span className="model-option-description">{level.description}</span>
+                            </span>
+                            {level.id === (reasoning ?? 'default') && (
+                              <Check className="model-option-check" aria-hidden="true" />
+                            )}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="model-menu-row">
+                      <span>Other versions</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="model-menu model-submenu">
+                      <DropdownMenuRadioGroup value={model} onValueChange={pickModel}>
+                        {MODELS.filter((item) => item.legacy).map(modelOption)}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSeparator />
                   <p className="model-menu-note">
                     {availableModels === null
                       ? 'Availability depends on your connected service.'
                       : 'Only models included in this workspace’s connected plan can be selected.'}
                   </p>
-                </SelectContent>
-              </Select>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             <div className="composer-actions">
-              <Button
-                type="submit"
-                className="send-button"
-                disabled={!canSend}
-                aria-label="Send message"
-              >
-                {loading ? (
-                  <LoaderCircle className="animate-spin" size={17} />
-                ) : (
+              {voiceSupported && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="voice-button"
+                  aria-label={listening ? 'Stop dictation' : 'Dictate your message'}
+                  title={listening ? 'Stop dictation' : 'Dictate'}
+                  aria-pressed={listening}
+                  disabled={loading}
+                  onClick={toggleVoice}
+                >
+                  {listening ? (
+                    <span className="voice-wave" aria-hidden="true">
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                  ) : (
+                    <Mic size={18} />
+                  )}
+                </Button>
+              )}
+              {loading ? (
+                <Button
+                  type="button"
+                  className="send-button stop-button"
+                  aria-label="Stop response"
+                  onClick={onStop}
+                >
+                  <Square size={14} fill="currentColor" />
+                  <span>Stop</span>
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  className="send-button"
+                  disabled={!canSend}
+                  aria-label="Send message"
+                >
                   <ArrowUp size={18} />
-                )}
-                <span>{loading ? 'Working' : 'Send'}</span>
-              </Button>
+                  <span>Send</span>
+                </Button>
+              )}
             </div>
           </div>
         </form>

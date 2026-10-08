@@ -1,26 +1,46 @@
 export type UniversityRole = 'Student' | 'Faculty' | 'Researcher' | 'Staff';
+/** A user file kept in the browser (IndexedDB); only this reference is saved with the chat. */
+export interface FileRef {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+}
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   display?: string;
   fileName?: string | null;
+  attachment?: FileRef;
+  /** The user stopped the response before it finished. */
+  stopped?: boolean;
 }
 export interface Chat {
   id: string;
   title: string;
   messages: ChatMessage[];
 }
-export interface Attachment {
+export interface Attachment extends FileRef {
   truncated?: boolean;
-  name: string;
   text: string;
+  /** The original file, in memory until the message is sent. */
+  file?: File;
 }
 export interface AssistantRequest {
   model: string;
   max_tokens: number;
   system: string;
   messages: Pick<ChatMessage, 'role' | 'content'>[];
+  reasoning_effort?: string;
 }
+
+export type ReasoningLevel = 'fast' | 'medium' | 'high' | 'extra_high';
+export const REASONING_LEVELS: { id: ReasoningLevel; label: string; description: string }[] = [
+  { id: 'fast', label: 'Fast', description: 'Quick answers with little deliberation.' },
+  { id: 'medium', label: 'Medium', description: 'A balance of speed and depth.' },
+  { id: 'high', label: 'High', description: 'Thinks longer before answering.' },
+  { id: 'extra_high', label: 'Extra High', description: 'The deepest reasoning, slowest.' },
+];
 export interface AssistantBridge {
   complete(request: AssistantRequest): Promise<unknown>;
 }
@@ -64,7 +84,15 @@ export interface AssistantModel {
   badge: string;
   icon: string;
   legacy?: boolean;
+  /** Reasoning levels this model accepts, mapped to the provider's `reasoning_effort` value. */
+  reasoning?: Partial<Record<ReasoningLevel, string>>;
 }
+
+// Checked against APMIX on 2026-10-08: claude-sonnet-4-6-free accepts `reasoning_effort` but
+// ignores it (no reasoning tokens); the other models are not in the current key's plan.
+// Add a mapping only once a model is verified to reason, e.g. { fast: 'low', high: 'high' }.
+export const reasoningLevelsFor = (model: string) =>
+  MODELS.find((item) => item.id === model)?.reasoning ?? {};
 
 // API identifiers checked against the APMIX catalog on 2026-10-08.
 // APMIX plan permissions are enforced by the provider; UNUVIA never substitutes models.

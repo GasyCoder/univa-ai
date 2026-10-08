@@ -169,7 +169,7 @@
 }
 .conversation-workspace .chat-composer form {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: end;
   gap: 6px;
   padding: 10px;
@@ -446,7 +446,7 @@
     gap: 8px;
   }
   .conversation-workspace .chat-composer form {
-    grid-template-columns: 44px minmax(0, 1fr) 180px 44px;
+    grid-template-columns: 44px minmax(0, 1fr) auto auto;
     padding: 10px;
     gap: 8px;
   }
@@ -529,4 +529,11 @@
   .conversation-workspace .chat-composer textarea.prompt-input {
     max-height: 100px;
   }
+}
+
+/* The placeholder stays on one line when the options take more room. */
+.conversation-workspace .chat-composer textarea.prompt-input::placeholder {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

@@ -2,8 +2,9 @@
 // Libraries are loaded on demand; they are heavy and rarely needed.
 
 export const DOCUMENT_ACCEPT =
-  '.txt,.md,.csv,.pdf,.docx,.jpg,.jpeg,.png,text/plain,text/markdown,text/csv,application/pdf,image/jpeg,image/png';
-export const DOCUMENT_HINT = '.txt, .md, .csv, .pdf, .docx, .jpg, or .png · up to 10 MB';
+  '.txt,.md,.csv,.pdf,.docx,.xlsx,.jpg,.jpeg,.png,text/plain,text/markdown,text/csv,application/pdf,image/jpeg,image/png';
+export const DOCUMENT_HINT = '.txt, .md, .csv, .pdf, .docx, .xlsx, .jpg, or .png · up to 10 MB';
+export const DOCUMENT_PATTERN = /\.(txt|md|csv|pdf|docx|xlsx|jpe?g|png)$/i;
 export const MAX_FILE_BYTES = 10_000_000;
 // Matches the server's per-message limit (route.ts), leaving room for the question.
 export const MAX_TEXT_CHARS = 190_000;
@@ -22,12 +23,17 @@ async function ocr(image: Blob | HTMLCanvasElement) {
   }
 }
 
-async function pdfText(file: File) {
+export async function loadPdfjs() {
   const pdfjs = await import('pdfjs-dist');
   pdfjs.GlobalWorkerOptions.workerSrc = new URL(
     'pdfjs-dist/build/pdf.worker.min.mjs',
     import.meta.url
   ).toString();
+  return pdfjs;
+}
+
+async function pdfText(file: File) {
+  const pdfjs = await loadPdfjs();
   const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
   let text = '';
   for (let i = 1; i <= pdf.numPages; i++) {
@@ -62,8 +68,13 @@ export async function extractDocumentText(
   else if (type === 'docx') {
     const mammoth = await import('mammoth');
     text = (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value;
+  } else if (type === 'xlsx') {
+    const { readXlsx, toCsv } = await import('./office');
+    text = readXlsx(await file.arrayBuffer())
+      .map((sheet) => `Sheet: ${sheet.name}\n${toCsv(sheet.rows)}`)
+      .join('\n\n');
   } else if (['jpg', 'jpeg', 'png'].includes(type)) text = await ocr(file);
-  else throw new Error('Choose a .txt, .md, .csv, .pdf, .docx, .jpg, or .png file.');
+  else throw new Error('Choose a .txt, .md, .csv, .pdf, .docx, .xlsx, .jpg, or .png file.');
 
   text = text
     .replace(/[ \t]+\n/g, '\n')

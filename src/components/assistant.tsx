@@ -1,7 +1,7 @@
 'use client';
 
-import { extractDocumentText, MAX_FILE_BYTES } from '@/lib/extract-document';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { DOCUMENT_PATTERN, extractDocumentText, MAX_FILE_BYTES } from '@/lib/extract-document';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
@@ -10,6 +10,16 @@ import { MobileNavigation } from './mobile-navigation';
 import { AssistantSidebar } from './assistant-sidebar';
 import { ArrowDown, Download, MoreHorizontal } from 'lucide-react';
 import { AssistantResponse } from './assistant-response';
+import { ArtifactCard, ArtifactPanel, ResizeHandle } from './artifact-panel';
+import {
+  type Artifact,
+  attachmentArtifact,
+  documentTextArtifact,
+  responseArtifacts,
+  splitResponse,
+} from '@/lib/artifacts';
+import { pruneFiles, saveFile } from '@/lib/file-store';
+import { PANEL_DEFAULT, useArtifactPanel } from '@/lib/use-artifact-panel';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -43,8 +53,11 @@ import { loadChats, saveChats } from '@/lib/chat-storage';
 import {
   type Attachment,
   type Chat,
+  type ChatMessage,
   DEFAULT_MODEL,
   MODELS,
+  type ReasoningLevel,
+  reasoningLevelsFor,
   ROLES,
   type UniversityRole,
 } from '@/lib/chat-models';
@@ -85,6 +98,17 @@ const assistants = [
   },
 ] as const;
 
+/** The file a user message carries: the original when it is still stored, else its text. */
+function attachmentOf(message: ChatMessage, key: string): Artifact | null {
+  if (message.attachment) {
+    const text = documentTextArtifact(key, message.attachment.name, message.content)?.content;
+    return { ...attachmentArtifact(message.attachment), content: text };
+  }
+  return message.fileName
+    ? documentTextArtifact(`${key}:file`, message.fileName, message.content)
+    : null;
+}
+
 export function Assistant({
   user,
   availableModels,
@@ -108,9 +132,11 @@ export function Assistant({
   const [file, setFile] = useState<Attachment | null>(null);
   const [fileLoading, setFileLoading] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [typingResponse, setTypingResponse] = useState<{ chatId: string; index: number } | null>(
-    null
-  );
+  // Text of the response being received; it joins the chat once complete.
+  const [streaming, setStreaming] = useState<{ chatId: string; text: string } | null>(null);
+  const [reasoning, setReasoning] = useState<ReasoningLevel | null>(null);
+  const abort = useRef<AbortController | null>(null);
+  const panel = useArtifactPanel();
   const busy = useRef(false);
   const [sideOpen, setSideOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -138,6 +164,31 @@ export function Assistant({
     (typeof window !== 'undefined' && typeof window.claude?.complete === 'function');
   const canSend = ready && modelAvailable && !loading && !fileLoading && (!!draft.trim() || !!file);
   const canRetry = failed?.id === currentId && !!failed && !loading;
+  const streamingText = streaming && streaming.chatId === currentId ? streaming.text : null;
+  const activeReasoning = reasoning && reasoningLevelsFor(model)[reasoning] ? reasoning : undefined;
+  // Every file of this conversation, by id: the panel always shows the latest content.
+  const artifacts = useMemo(() => {
+    const map = new Map<string, Artifact>();
+    const list = current?.messages ?? [];
+    list.forEach((message, i) => {
+      const key = `${current!.id}:${i}`;
+      if (message.role === 'assistant')
+        for (const artifact of responseArtifacts(message.content, key))
+          map.set(artifact.id, artifact);
+      else {
+        const artifact = attachmentOf(message, key);
+        if (artifact) map.set(artifact.id, artifact);
+      }
+    });
+    if (streamingText && current)
+      for (const segment of splitResponse(streamingText, `${current.id}:${list.length}`, true))
+        if (segment.kind === 'artifact') map.set(segment.artifact.id, segment.artifact);
+    return map;
+  }, [current, streamingText]);
+  const shownArtifact =
+    panel.artifactPanelOpen && panel.activeArtifact
+      ? (artifacts.get(panel.activeArtifact.id) ?? panel.activeArtifact)
+      : null;
 
   useEffect(() => {
     const saved = loadChats(user.id);
@@ -174,6 +225,14 @@ export function Assistant({
   useEffect(() => {
     if (ready) setStorageError(!saveChats(chats, role, model, user.id));
   }, [chats, role, model, ready, user.id]);
+  useEffect(() => {
+    if (!ready) return;
+    // Originals of deleted conversations are removed from this device.
+    const keep = new Set(
+      chats.flatMap((c) => c.messages.flatMap((m) => (m.attachment ? [m.attachment.id] : [])))
+    );
+    pruneFiles(user.id, keep).catch(() => {});
+  }, [chats, ready, user.id]);
   const followLatest = useCallback(() => {
     const el = scroll.current;
     if (!el) return;
@@ -184,14 +243,13 @@ export function Assistant({
       lastFollowPosition.current = el.scrollTop;
     }
   }, []);
-  const finishTyping = useCallback(() => setTypingResponse(null), []);
   useEffect(() => {
     if (!messages.length && scroll.current) {
       scroll.current.scrollTop = 0;
       lastFollowPosition.current = 0;
       followResponse.current = true;
     } else followLatest();
-  }, [messages.length, loading, currentId, followLatest]);
+  }, [messages.length, loading, currentId, followLatest, streamingText]);
 
   const focus = useCallback(
     () =>
@@ -203,7 +261,7 @@ export function Assistant({
     []
   );
   function chooseChat(id: string | null) {
-    setTypingResponse(null);
+    if (id !== currentRef.current) panel.resetArtifacts();
     setAwayFromLatest(false);
     followResponse.current = true;
     lastFollowPosition.current = 0;
@@ -254,8 +312,8 @@ export function Assistant({
   async function readFile(selected: File) {
     if (busy.current || fileLoading) return;
     setError('');
-    if (!/\.(txt|md|csv|pdf|docx|jpe?g|png)$/i.test(selected.name)) {
-      setError('Choose a .txt, .md, .csv, .pdf, .docx, .jpg, or .png file.');
+    if (!DOCUMENT_PATTERN.test(selected.name)) {
+      setError('Choose a .txt, .md, .csv, .pdf, .docx, .xlsx, .jpg, or .png file.');
       return;
     }
     if (selected.size > MAX_FILE_BYTES) {
@@ -265,7 +323,15 @@ export function Assistant({
     setFileLoading(true);
     try {
       const { text, truncated } = await extractDocumentText(selected);
-      setFile({ name: selected.name, text, truncated });
+      setFile({
+        id: crypto.randomUUID(),
+        name: selected.name,
+        mimeType: selected.type,
+        size: selected.size,
+        text,
+        truncated,
+        file: selected,
+      });
       focus();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to read the document.');
@@ -276,20 +342,69 @@ export function Assistant({
   async function complete(chat: Chat) {
     if (busy.current) return;
     busy.current = true;
+    const controller = new AbortController();
+    abort.current = controller;
+    const key = `${chat.id}:${chat.messages.length}`;
+    let latest = '';
+    let frame = 0;
+    let opened = false;
+    // A file written in the response opens beside the chat, without taking focus.
+    const reveal = (text: string, live: boolean) => {
+      if (opened || currentRef.current !== chat.id || window.innerWidth < 1024) return;
+      const first = splitResponse(text, key, live).find((segment) => segment.kind === 'artifact');
+      if (first?.kind === 'artifact') {
+        opened = true;
+        panel.openArtifact(first.artifact);
+      }
+    };
+    const commit = (content: string, stopped = false) =>
+      setChats((chats) =>
+        chats.map((c) =>
+          c.id === chat.id
+            ? {
+                ...c,
+                messages: [
+                  ...c.messages,
+                  { role: 'assistant' as const, content, ...(stopped && { stopped }) },
+                ],
+              }
+            : c
+        )
+      );
     setLoading(true);
     setError('');
     setFailed(null);
     try {
-      const content = await completeAssistant(chat.messages, role, model);
-      if (currentRef.current === chat.id)
-        setTypingResponse({ chatId: chat.id, index: chat.messages.length });
-      setChats((chats) =>
-        chats.map((c) =>
-          c.id === chat.id ? { ...c, messages: [...c.messages, { role: 'assistant', content }] } : c
-        )
-      );
+      const content = await completeAssistant(chat.messages, role, model, {
+        reasoning: activeReasoning,
+        signal: controller.signal,
+        onText: (text) => {
+          latest = text;
+          // One update per frame, however fast the text arrives.
+          if (!frame)
+            frame = requestAnimationFrame(() => {
+              frame = 0;
+              setStreaming({ chatId: chat.id, text: latest });
+              reveal(latest, true);
+            });
+        },
+      });
+      cancelAnimationFrame(frame);
+      reveal(content, false);
+      commit(content);
       return true;
     } catch (e) {
+      cancelAnimationFrame(frame);
+      if (controller.signal.aborted) {
+        // Stopped by the user: what was written so far is kept.
+        if (latest.trim()) {
+          commit(latest.trim(), true);
+          return true;
+        }
+        setFailed({ id: chat.id, message: 'Response stopped.' });
+        if (currentRef.current === chat.id) setError('Response stopped.');
+        return false;
+      }
       const message =
         e instanceof AssistantError
           ? e.message
@@ -305,7 +420,9 @@ export function Assistant({
       return e instanceof AssistantError && e.code === 'not_configured' ? 'not_configured' : false;
     } finally {
       busy.current = false;
+      abort.current = null;
       setLoading(false);
+      setStreaming(null);
     }
   }
   async function send(event?: React.FormEvent) {
@@ -320,8 +437,26 @@ export function Assistant({
     const chat = current ?? { id: crypto.randomUUID(), title: display.slice(0, 60), messages: [] };
     const updated: Chat = {
       ...chat,
-      messages: [...chat.messages, { role: 'user', content, display, fileName: file?.name }],
+      messages: [
+        ...chat.messages,
+        {
+          role: 'user',
+          content,
+          display,
+          fileName: file?.name,
+          ...(file && {
+            attachment: {
+              id: file.id,
+              name: file.name,
+              mimeType: file.mimeType,
+              size: file.size,
+            },
+          }),
+        },
+      ],
     };
+    // The original stays on this device so it can be reopened beside the chat.
+    if (file?.file) saveFile(user.id, file.id, file.file).catch(() => {});
     setChats((chats) => [updated, ...chats.filter((c) => c.id !== updated.id)].slice(0, 30));
     chooseChat(updated.id);
     setDraft('');
@@ -407,6 +542,9 @@ export function Assistant({
           }
           onModelChange={setModel}
           onModelOpenChange={setModelOpen}
+          reasoning={activeReasoning ?? null}
+          onReasoningChange={setReasoning}
+          onStop={() => abort.current?.abort()}
           file={file}
           onRemoveFile={() => setFile(null)}
           onFile={readFile}
@@ -475,255 +613,314 @@ export function Assistant({
         inert={modelOpen}
       >
         {sidebar()}
-        <main id="chat-content" className="chat-main">
-          <header className="chat-topbar">
-            <div>
-              <Sheet open={sideOpen} onOpenChange={setSideOpen}>
-                <MobileNavigation label="Mobile workspace navigation">
-                  <SheetTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className="mobile-nav-item"
-                      aria-label="Open navigation"
-                    >
-                      <Icon name="chat" />
-                      <span>Chats</span>
-                    </Button>
-                  </SheetTrigger>
-                  <Button
-                    variant="ghost"
-                    className="mobile-nav-item mobile-nav-primary"
-                    onClick={newChat}
-                    disabled={loading}
-                    aria-label="New conversation"
-                  >
-                    <Icon name="plus" />
-                    <span>New chat</span>
-                  </Button>
-                  <Button variant="ghost" asChild className="mobile-nav-item">
-                    <Link href="/">
-                      <Icon name="home" />
-                      <span>Home</span>
-                    </Link>
-                  </Button>
-                  <ThemeToggle label="Theme" className="mobile-nav-item" />
-                </MobileNavigation>
-                <SheetContent
-                  side="left"
-                  className="mobile-chat-sheet workspace-chat-sheet"
-                  onCloseAutoFocus={(event) => {
-                    if (focusAfterSidebarClose.current) {
-                      event.preventDefault();
-                      focusAfterSidebarClose.current = false;
-                      focus();
-                    }
-                  }}
-                >
-                  <SheetTitle className="sr-only">Your conversations</SheetTitle>
-                  <SheetDescription className="sr-only">
-                    Chat history and new conversation
-                  </SheetDescription>
-                  {sidebar(true)}
-                </SheetContent>
-              </Sheet>
-              <strong className="workspace-header-title" title={current?.title}>
-                {current ? (
-                  current.title
-                ) : (
-                  <>
-                    <span className="workspace-brand-short">UNUVIA</span>
-                    <span className="workspace-brand-full">UNUVIA workspace</span>
-                  </>
-                )}
-              </strong>
-              <Badge variant="secondary" className="preview-label">
-                Free
-              </Badge>
-            </div>
-            <div className="role-control">
-              <ThemeToggle />
-              <Icon name="school" />
-              <Label htmlFor="chat-role" className="sr-only">
-                My workspace role
-              </Label>
-              <span className="role-caption" aria-hidden="true">
-                My role
-              </span>
-              <Select
-                value={role}
-                onValueChange={(v) => {
-                  if (ROLES.some((item) => item.id === v)) setRole(v as UniversityRole);
-                }}
-                disabled={loading}
-              >
-                <SelectTrigger id="chat-role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {current && (
-                <DropdownMenu modal={false}>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="workspace-topbar-menu"
-                      aria-label="Conversation actions"
-                    >
-                      <MoreHorizontal />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="workspace-action-menu">
-                    <DropdownMenuItem onSelect={downloadConversation}>
-                      <Download /> Download conversation
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-          </header>
-          <div
-            ref={scroll}
-            onScroll={() => {
-              const el = scroll.current;
-              if (el) {
-                followResponse.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
-                setAwayFromLatest(!followResponse.current);
-                lastFollowPosition.current = el.scrollTop;
-              }
-            }}
-            className={`chat-scroll ${messages.length ? 'conversation-scroll' : 'welcome-scroll'}`}
-          >
-            {!messages.length ? (
-              <div className="assistant-welcome">
-                <div className="welcome-intro">
-                  <p className="workspace-greeting">
-                    Hello, {user.name.trim().split(/\s+/)[0] || 'there'}.
-                  </p>
-                  <h1>What are you working on?</h1>
-                  <p>A question, your notes, or an idea to work through.</p>
-                </div>
-                {composer()}
-                <div className="suggestions-heading">
-                  <span>A few starting points</span>
-                  <span>Make them your own</span>
-                </div>
-                <div className="assistant-cards">
-                  {assistants.map((assistant) => (
-                    <Card className="assistant-card" key={assistant.title}>
+        <div
+          className="workspace-split"
+          data-panel={shownArtifact ? panel.mode : 'closed'}
+          style={{ '--panel-size': `${panel.size}%` } as React.CSSProperties}
+        >
+          <main id="chat-content" className="chat-main">
+            <header className="chat-topbar">
+              <div>
+                <Sheet open={sideOpen} onOpenChange={setSideOpen}>
+                  <MobileNavigation label="Mobile workspace navigation">
+                    <SheetTrigger asChild>
                       <Button
                         variant="ghost"
-                        className="assistant-card-action"
-                        onClick={() => {
-                          setRole(assistant.role);
-                          setDraft(assistant.prompt);
-                          focus();
-                        }}
+                        className="mobile-nav-item"
+                        aria-label="Open navigation"
                       >
-                        <span className={`feature-icon ${assistant.color}`}>
-                          <Icon name={assistant.icon} />
-                        </span>
-                        <span className="assistant-card-copy">
-                          <strong>{assistant.title}</strong>
-                          <span>{assistant.description}</span>
-                        </span>
-                        <Icon name="arrow" />
+                        <Icon name="chat" />
+                        <span>Chats</span>
                       </Button>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div
-                className="messages"
-                aria-live={typingResponse?.chatId === currentId ? 'off' : 'polite'}
-                aria-relevant="additions"
-                aria-label="Conversation messages"
-              >
-                {messages.map((message, i) => (
-                  <article
-                    key={`${currentId}-${i}`}
-                    className={`message ${message.role === 'user' ? 'user' : ''}`}
-                    aria-label={message.role === 'user' ? 'Your message' : 'UNUVIA response'}
+                    </SheetTrigger>
+                    <Button
+                      variant="ghost"
+                      className="mobile-nav-item mobile-nav-primary"
+                      onClick={newChat}
+                      disabled={loading}
+                      aria-label="New conversation"
+                    >
+                      <Icon name="plus" />
+                      <span>New chat</span>
+                    </Button>
+                    <Button variant="ghost" asChild className="mobile-nav-item">
+                      <Link href="/">
+                        <Icon name="home" />
+                        <span>Home</span>
+                      </Link>
+                    </Button>
+                    <ThemeToggle label="Theme" className="mobile-nav-item" />
+                  </MobileNavigation>
+                  <SheetContent
+                    side="left"
+                    className="mobile-chat-sheet workspace-chat-sheet"
+                    onCloseAutoFocus={(event) => {
+                      if (focusAfterSidebarClose.current) {
+                        event.preventDefault();
+                        focusAfterSidebarClose.current = false;
+                        focus();
+                      }
+                    }}
                   >
-                    {message.role === 'assistant' && (
+                    <SheetTitle className="sr-only">Your conversations</SheetTitle>
+                    <SheetDescription className="sr-only">
+                      Chat history and new conversation
+                    </SheetDescription>
+                    {sidebar(true)}
+                  </SheetContent>
+                </Sheet>
+                <strong className="workspace-header-title" title={current?.title}>
+                  {current ? (
+                    current.title
+                  ) : (
+                    <>
+                      <span className="workspace-brand-short">UNUVIA</span>
+                      <span className="workspace-brand-full">UNUVIA workspace</span>
+                    </>
+                  )}
+                </strong>
+                <Badge variant="secondary" className="preview-label">
+                  Free
+                </Badge>
+              </div>
+              <div className="role-control">
+                <ThemeToggle />
+                <Icon name="school" />
+                <Label htmlFor="chat-role" className="sr-only">
+                  My workspace role
+                </Label>
+                <span className="role-caption" aria-hidden="true">
+                  My role
+                </span>
+                <Select
+                  value={role}
+                  onValueChange={(v) => {
+                    if (ROLES.some((item) => item.id === v)) setRole(v as UniversityRole);
+                  }}
+                  disabled={loading}
+                >
+                  <SelectTrigger id="chat-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLES.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {current && (
+                  <DropdownMenu modal={false}>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="workspace-topbar-menu"
+                        aria-label="Conversation actions"
+                      >
+                        <MoreHorizontal />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="workspace-action-menu">
+                      <DropdownMenuItem onSelect={downloadConversation}>
+                        <Download /> Download conversation
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+            </header>
+            <div
+              ref={scroll}
+              onScroll={() => {
+                const el = scroll.current;
+                if (el) {
+                  followResponse.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
+                  setAwayFromLatest(!followResponse.current);
+                  lastFollowPosition.current = el.scrollTop;
+                }
+              }}
+              className={`chat-scroll ${messages.length ? 'conversation-scroll' : 'welcome-scroll'}`}
+            >
+              {!messages.length ? (
+                <div className="assistant-welcome">
+                  <div className="welcome-intro">
+                    <p className="workspace-greeting">
+                      Hello, {user.name.trim().split(/\s+/)[0] || 'there'}.
+                    </p>
+                    <h1>What are you working on?</h1>
+                    <p>A question, your notes, or an idea to work through.</p>
+                  </div>
+                  {composer()}
+                  <div className="suggestions-heading">
+                    <span>A few starting points</span>
+                    <span>Make them your own</span>
+                  </div>
+                  <div className="assistant-cards">
+                    {assistants.map((assistant) => (
+                      <Card className="assistant-card" key={assistant.title}>
+                        <Button
+                          variant="ghost"
+                          className="assistant-card-action"
+                          onClick={() => {
+                            setRole(assistant.role);
+                            setDraft(assistant.prompt);
+                            focus();
+                          }}
+                        >
+                          <span className={`feature-icon ${assistant.color}`}>
+                            <Icon name={assistant.icon} />
+                          </span>
+                          <span className="assistant-card-copy">
+                            <strong>{assistant.title}</strong>
+                            <span>{assistant.description}</span>
+                          </span>
+                          <Icon name="arrow" />
+                        </Button>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="messages"
+                  aria-live={streamingText ? 'off' : 'polite'}
+                  aria-relevant="additions"
+                  aria-label="Conversation messages"
+                >
+                  {messages.map((message, i) => (
+                    <article
+                      key={`${currentId}-${i}`}
+                      className={`message ${message.role === 'user' ? 'user' : ''}`}
+                      aria-label={message.role === 'user' ? 'Your message' : 'UNUVIA response'}
+                    >
+                      {message.role === 'assistant' && (
+                        <span className="ai-mark">
+                          <img src="/assets/univa-icon.png" alt="" width="22" height="22" />
+                          <span>UNUVIA</span>
+                        </span>
+                      )}
+                      <div className="message-body">
+                        {message.fileName &&
+                          (() => {
+                            const artifact = artifacts.get(
+                              message.attachment?.id ?? `${currentId}:${i}:file`
+                            );
+                            return artifact ? (
+                              <ArtifactCard
+                                artifact={{ ...artifact, name: message.fileName }}
+                                active={shownArtifact?.id === artifact.id}
+                                onOpen={() => panel.openArtifact(artifact)}
+                              />
+                            ) : (
+                              <span className="message-file">
+                                <Icon name="file" />
+                                {message.fileName}
+                              </span>
+                            );
+                          })()}
+                        {message.role === 'user' ? (
+                          <p>{message.display || message.content}</p>
+                        ) : (
+                          <AssistantResponse
+                            content={message.content}
+                            messageKey={`${currentId}:${i}`}
+                            stopped={message.stopped}
+                            copied={copied === i}
+                            onCopy={() => copy(message.content, i)}
+                            activeArtifactId={shownArtifact?.id}
+                            onOpenArtifact={panel.openArtifact}
+                          />
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                  {streamingText && (
+                    <article className="message" aria-label="UNUVIA response">
                       <span className="ai-mark">
                         <img src="/assets/univa-icon.png" alt="" width="22" height="22" />
                         <span>UNUVIA</span>
                       </span>
-                    )}
-                    <div className="message-body">
-                      {message.fileName && (
-                        <span className="message-file">
-                          <Icon name="file" />
-                          {message.fileName}
-                        </span>
-                      )}
-                      {message.role === 'user' ? (
-                        <p>{message.display || message.content}</p>
-                      ) : (
+                      <div className="message-body">
                         <AssistantResponse
-                          content={message.content}
-                          animate={
-                            typingResponse?.chatId === currentId && typingResponse.index === i
-                          }
-                          copied={copied === i}
-                          onCopy={() => copy(message.content, i)}
-                          onProgress={followLatest}
-                          onRevealComplete={finishTyping}
+                          content={streamingText}
+                          messageKey={`${currentId}:${messages.length}`}
+                          streaming
+                          copied={false}
+                          onCopy={() => {}}
+                          activeArtifactId={shownArtifact?.id}
+                          onOpenArtifact={panel.openArtifact}
                         />
-                      )}
+                      </div>
+                    </article>
+                  )}
+                  {loading && !streamingText && (
+                    <div className="message">
+                      <span className="ai-mark">
+                        <img src="/assets/univa-icon.png" alt="" width="22" height="22" />
+                        <span>UNUVIA</span>
+                      </span>
+                      <span
+                        className="thinking"
+                        role="status"
+                        aria-label="UNUVIA is preparing a response"
+                      >
+                        <i />
+                        <i />
+                        <i />
+                      </span>
                     </div>
-                  </article>
-                ))}
-                {loading && (
-                  <div className="message">
-                    <span className="ai-mark">
-                      <img src="/assets/univa-icon.png" alt="" width="22" height="22" />
-                      <span>UNUVIA</span>
-                    </span>
-                    <span
-                      className="thinking"
-                      role="status"
-                      aria-label="UNUVIA is preparing a response"
-                    >
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                  </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {messages.length > 0 && (
+              <div className="chat-composer-area">
+                {awayFromLatest && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="workspace-jump-latest"
+                    aria-label="Jump to latest message"
+                    onClick={() => {
+                      followResponse.current = true;
+                      lastFollowPosition.current = 0;
+                      followLatest();
+                      setAwayFromLatest(false);
+                    }}
+                  >
+                    <ArrowDown />
+                  </Button>
                 )}
+                <div className="chat-composer-inner">{composer()}</div>
               </div>
             )}
-          </div>
-          {messages.length > 0 && (
-            <div className="chat-composer-area">
-              {awayFromLatest && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="workspace-jump-latest"
-                  aria-label="Jump to latest message"
-                  onClick={() => {
-                    followResponse.current = true;
-                    lastFollowPosition.current = 0;
-                    followLatest();
-                    setAwayFromLatest(false);
-                  }}
-                >
-                  <ArrowDown />
-                </Button>
+          </main>
+          {shownArtifact && (
+            <>
+              {panel.mode === 'normal' && (
+                <ResizeHandle
+                  size={panel.size}
+                  onResize={panel.setSize}
+                  onReset={() => panel.setSize(PANEL_DEFAULT)}
+                />
               )}
-              <div className="chat-composer-inner">{composer()}</div>
-            </div>
+              <ArtifactPanel
+                artifact={shownArtifact}
+                userId={user.id}
+                mode={panel.mode}
+                onClose={() => {
+                  panel.closeArtifact();
+                  focus();
+                }}
+                onMaximize={panel.maximizeArtifact}
+                onFullscreen={panel.fullscreenArtifact}
+                onRestore={panel.restoreArtifact}
+              />
+            </>
           )}
-        </main>
+        </div>
       </div>
     </>
   );

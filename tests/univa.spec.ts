@@ -258,18 +258,20 @@ test.describe('mobile touch interactions', () => {
         expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       }
       await page.locator('#chat-model').tap();
-      const picker = page.getByRole('listbox');
+      const picker = page.getByRole('menu');
       await expect(picker).toBeInViewport();
-      await page.getByRole('option', { name: /^Claude Opus 5\.5/ }).tap();
+      await page.getByRole('menuitemradio', { name: /^Claude Opus 5\.5/ }).tap();
       await expect(page.locator('#chat-model')).toContainText('Claude Opus 5.5');
       await expect(input).toHaveValue('A research question\n');
       await expect(picker).toBeHidden();
       await page.locator('#chat-model').focus();
       await expect(page.locator('#chat-model')).toBeFocused();
       await page.keyboard.press('ArrowDown');
-      await expect(page.getByRole('option', { name: /^Claude Opus 5\.5/ })).toBeFocused();
+      await expect(page.getByRole('menuitemradio', { name: /^Claude Sonnet 5\.5/ })).toBeFocused();
       await page.keyboard.press('ArrowDown');
-      await expect(page.getByRole('option', { name: /^Claude Fable 5\.1/ })).toBeFocused();
+      await expect(page.getByRole('menuitemradio', { name: /^Claude Opus 5\.5/ })).toBeFocused();
+      await page.keyboard.press('ArrowDown');
+      await expect(page.getByRole('menuitemradio', { name: /^Claude Fable 5\.1/ })).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(page.locator('#chat-model')).toContainText('Claude Fable 5.1');
       await page.getByRole('button', { name: 'Open navigation' }).tap();
@@ -362,7 +364,7 @@ test('all models are selectable and sent using their API identifiers', async ({
     ['Claude Haiku 4.5', 'claude-haiku-4-5'],
   ]) {
     await page.locator('#chat-model').click();
-    await page.getByRole('option', { name: label }).click();
+    await page.getByRole('menuitemradio', { name: label }).click();
     await page.locator('#chat-input').fill('Explain an idea');
     await page.getByRole('button', { name: 'Send message' }).click();
     await expect(page.locator('.markdown-content').last()).toContainText(id);
@@ -668,22 +670,63 @@ for (const [width, mode] of [
   });
 }
 
-test('typewriter reveals new responses progressively and preserves full Unicode and Markdown in history', async ({
+/** Replaces the assistant API with a text stream that arrives a few characters at a time. */
+async function streamResponses(page: Page, answer: string, delay = 30, size = 24) {
+  await page.addInitScript(
+    ({ answer, delay, size }) => {
+      const original = window.fetch.bind(window);
+      window.fetch = (input, init) => {
+        if (!String(input instanceof Request ? input.url : input).includes('/api/assistant'))
+          return original(input, init);
+        const encoder = new TextEncoder();
+        const characters = Array.from(answer);
+        let offset = 0;
+        let timer: ReturnType<typeof setInterval>;
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            timer = setInterval(() => {
+              if (init?.signal?.aborted) {
+                clearInterval(timer);
+                controller.error(new DOMException('Aborted', 'AbortError'));
+                return;
+              }
+              controller.enqueue(encoder.encode(characters.slice(offset, offset + size).join('')));
+              offset += size;
+              if (offset >= characters.length) {
+                clearInterval(timer);
+                controller.close();
+              }
+            }, delay);
+          },
+          cancel() {
+            clearInterval(timer);
+          },
+        });
+        return Promise.resolve(
+          new Response(body, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+        );
+      };
+    },
+    { answer, delay, size }
+  );
+}
+
+test('responses stream in progressively and keep full Unicode and Markdown in history', async ({
   page,
   account,
 }) => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.setViewportSize({ width: 390, height: 740 });
   const answer =
-    '**Research notes**\n\n[Reference](https://example.edu/research)\n\nCafé, e\u0301ducation and 👩🏽‍🔬 — a clear starting point.\n\n' +
+    '**Research notes**\n\n[Reference](https://example.edu/research)\n\nCafé, éducation and 👩🏽‍🔬 — a clear starting point.\n\n' +
     'Build your outline around your research question. '.repeat(15) +
     '\n\n- Review sources\n- Compare findings';
-  await page.route('**/api/assistant', (route) => route.fulfill({ json: { content: answer } }));
+  await streamResponses(page, answer);
   await workspace(page, account.cookies);
   await page.locator('#chat-input').fill('Help me organize my notes');
   await page.getByRole('button', { name: 'Send message' }).click();
   const response = page.locator('.assistant-response');
   await expect(response).toHaveAttribute('aria-busy', 'true');
+  await expect(page.getByRole('button', { name: 'Stop response' })).toBeVisible();
   const markdown = response.locator('.markdown-content');
   await expect.poll(async () => (await markdown.innerText()).length).toBeGreaterThan(5);
   const firstLength = (await markdown.innerText()).length;
@@ -691,32 +734,28 @@ test('typewriter reveals new responses progressively and preserves full Unicode 
   await expect
     .poll(async () => (await markdown.innerText()).length)
     .toBeGreaterThan(firstLength + 10);
-  await expect
-    .poll(() =>
-      page.evaluate((id) => {
-        const saved = JSON.parse(localStorage.getItem(`univa-chats-v2:${id}`) || '{}');
-        return saved.chats?.[0]?.messages?.[1]?.content;
-      }, account.id)
-    )
-    .toBe(answer);
   const accessibility = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
     .analyze();
   expect(accessibility.violations).toEqual([]);
-  await page.getByRole('button', { name: 'Show full response', exact: true }).click();
-  await expect(response).toHaveAttribute('aria-busy', 'false');
+  await expect(response).toHaveAttribute('aria-busy', 'false', { timeout: 20000 });
+  await expect(page.getByRole('button', { name: 'Send message' })).toBeVisible();
   await expect(markdown.locator('strong')).toHaveText('Research notes');
-  await expect(markdown).toContainText('Café, e\u0301ducation and 👩🏽‍🔬');
+  await expect(markdown).toContainText('Café, éducation and 👩🏽‍🔬');
   await expect(markdown.locator('li')).toHaveText(['Review sources', 'Compare findings']);
+  expect(
+    await page.evaluate((id) => {
+      const saved = JSON.parse(localStorage.getItem(`univa-chats-v2:${id}`) || '{}');
+      return saved.chats?.[0]?.messages?.[1]?.content;
+    }, account.id)
+  ).toBe(answer);
   await page.reload();
   await expect(page.locator('[data-ready="true"]')).toBeVisible();
-  // Opening a saved conversation shows its complete response without replaying the effect.
   await page.getByRole('button', { name: 'Open navigation' }).click();
   await page
     .getByRole('button', { name: 'Open conversation Help me organize my notes', exact: true })
     .click();
   await expect(page.locator('.assistant-response')).toHaveAttribute('aria-busy', 'false');
-  await expect(page.getByRole('button', { name: 'Show full response' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Copy response', exact: true })).toBeVisible();
   await expect(page.locator('.markdown-content li')).toHaveText([
     'Review sources',
@@ -725,48 +764,42 @@ test('typewriter reveals new responses progressively and preserves full Unicode 
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
   ).toBeTruthy();
-  await page.route('**/api/assistant', (route) =>
-    route.fulfill({ json: { content: '**Done.**\n\nYour notes are organized.' } })
-  );
-  await page.locator('#chat-input').fill('Finish the outline');
-  await page.getByRole('button', { name: 'Send message' }).click();
-  await expect(page.locator('.assistant-response').last()).toHaveAttribute('aria-busy', 'false');
-  await expect(page.locator('.markdown-content').last()).toContainText('Your notes are organized.');
-  await expect(page.getByRole('button', { name: 'Show full response' })).toHaveCount(0);
 });
 
-test('typewriter respects reduced motion and a preference change during a response', async ({
-  page,
-  account,
-}) => {
-  const answer = 'Your complete response is available immediately. '.repeat(20);
-  await page.route('**/api/assistant', (route) => route.fulfill({ json: { content: answer } }));
+test('Stop ends a response and keeps the text received so far', async ({ page, account }) => {
+  const answer = 'A sentence of the answer that keeps coming. '.repeat(60);
+  await streamResponses(page, answer, 40, 12);
   await workspace(page, account.cookies);
-  await page.locator('#chat-input').fill('An accessible response');
+  await page.locator('#chat-input').fill('A long answer');
   await page.getByRole('button', { name: 'Send message' }).click();
-  await expect(page.locator('.markdown-content')).toHaveText(answer.trim());
-  await expect(page.getByRole('button', { name: 'Show full response' })).toHaveCount(0);
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.locator('#chat-input').fill('Another response');
-  await page.getByRole('button', { name: 'Send message' }).click();
-  await expect(page.locator('.assistant-response').last()).toHaveAttribute('aria-busy', 'true');
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await expect(page.locator('.assistant-response').last()).toHaveAttribute('aria-busy', 'false');
-  await expect(page.locator('.markdown-content').last()).toHaveText(answer.trim());
-  await expect(page.getByRole('button', { name: 'Show full response' })).toHaveCount(0);
+  const markdown = page.locator('.markdown-content');
+  await expect.poll(async () => (await markdown.innerText()).length).toBeGreaterThan(20);
+  await page.getByRole('button', { name: 'Stop response' }).click();
+  await expect(page.locator('.assistant-response')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.getByText('Response stopped.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Send message' })).toBeVisible();
+  const saved = await page.evaluate((id) => {
+    const data = JSON.parse(localStorage.getItem(`univa-chats-v2:${id}`) || '{}');
+    return data.chats?.[0]?.messages?.[1];
+  }, account.id);
+  expect(saved.stopped).toBe(true);
+  expect(saved.content.length).toBeGreaterThan(20);
+  expect(saved.content.length).toBeLessThan(answer.length);
+  // The conversation continues normally afterwards.
+  await page.locator('#chat-input').fill('Go on');
+  await expect(page.getByRole('button', { name: 'Send message' })).toBeEnabled();
 });
 
-test('typewriter follows new text without pulling readers away from earlier messages', async ({
+test('streaming follows new text without pulling readers away from earlier messages', async ({
   page,
   account,
 }) => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.setViewportSize({ width: 1280, height: 650 });
   const answer = Array.from(
     { length: 80 },
     (_, i) => `Paragraph ${i + 1}. Read the next section of your research notes.`
   ).join('\n\n');
-  await page.route('**/api/assistant', (route) => route.fulfill({ json: { content: answer } }));
+  await streamResponses(page, answer, 40, 40);
   await workspace(page, account.cookies);
   await page.locator('#chat-input').fill('A longer response');
   await page.getByRole('button', { name: 'Send message' }).click();
@@ -784,13 +817,114 @@ test('typewriter follows new text without pulling readers away from earlier mess
     .poll(async () => (await page.locator('.markdown-content').innerText()).length)
     .toBeGreaterThan(length + 60);
   expect(await scroll.evaluate((el) => el.scrollTop)).toBe(0);
-  // Return to the latest text, then finish the animation without waiting for every paragraph.
-  await scroll.evaluate((el) => {
-    el.scrollTop = el.scrollHeight;
+  await expect(page.locator('.assistant-response')).toHaveAttribute('aria-busy', 'false', {
+    timeout: 20000,
   });
-  await page.getByRole('button', { name: 'Show full response', exact: true }).click();
-  await expect(page.locator('.assistant-response')).toHaveAttribute('aria-busy', 'false');
   await expect(page.locator('.markdown-content')).toContainText('Paragraph 80.');
+});
+
+test('files written in a response open beside the chat and can be resized, maximized and closed', async ({
+  page,
+  account,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const answer =
+    'Here is your plan.\n\n```markdown title="study-plan.md"\n# Study plan\n\n- Read chapter 1\n- **Review** notes\n```\n\n' +
+    'And the schedule:\n\n```csv title="schedule.csv"\nDay,Hours\nMonday,3\nTuesday,10\nFriday,2\n```\n\nGood luck.';
+  await page.route('**/api/assistant', (route) => route.fulfill({ json: { content: answer } }));
+  await workspace(page, account.cookies);
+  await page.locator('#chat-input').fill('Make me a study plan');
+  await page.getByRole('button', { name: 'Send message' }).click();
+  // The first file opens on its own; the question field keeps the focus for the next message.
+  const panel = page.getByRole('complementary', { name: 'File: study-plan.md' });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Study plan' })).toBeVisible();
+  await expect(page.locator('.markdown-content').first()).not.toContainText('Read chapter 1');
+  await expect(page.getByRole('button', { name: 'Open study-plan.md' })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
+  await panel.getByRole('button', { name: 'Source' }).click();
+  await expect(panel.locator('.viewer-source')).toContainText('# Study plan');
+
+  // Resizing with the keyboard is remembered.
+  const handle = page.getByRole('separator', { name: 'Resize file panel' });
+  await expect(handle).toHaveAttribute('aria-valuenow', '40');
+  await handle.focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(handle).toHaveAttribute('aria-valuenow', '42');
+  expect(await page.evaluate(() => localStorage.getItem('univa-artifact-panel-size'))).toBe('42');
+  const chatWidth = (await page.locator('#chat-content').boundingBox())!.width;
+  const panelWidth = (await panel.boundingBox())!.width;
+  expect(panelWidth / (panelWidth + chatWidth)).toBeGreaterThan(0.4);
+
+  await panel.getByRole('button', { name: 'Maximize panel' }).click();
+  await expect(page.locator('#chat-content')).toBeHidden();
+  await panel.getByRole('button', { name: 'Restore panel' }).click();
+  await expect(page.locator('#chat-content')).toBeVisible();
+
+  // The second file: a table that can be searched and sorted.
+  await page.getByRole('button', { name: 'Open schedule.csv' }).click();
+  const table = page.getByRole('complementary', { name: 'File: schedule.csv' });
+  await expect(table.locator('tbody tr')).toHaveCount(3);
+  await table.getByRole('button', { name: 'Hours' }).click();
+  await expect(table.locator('tbody tr td:first-child')).toHaveText([
+    'Friday',
+    'Monday',
+    'Tuesday',
+  ]);
+  await table.getByRole('searchbox').fill('tue');
+  await expect(table.locator('tbody tr')).toHaveCount(1);
+  const download = page.waitForEvent('download');
+  await table.getByRole('button', { name: 'Download' }).click();
+  await page.getByRole('menuitem', { name: 'Excel workbook (.xlsx)' }).click();
+  expect((await download).suggestedFilename()).toBe('schedule.xlsx');
+
+  await table.getByRole('button', { name: 'Close file panel' }).click();
+  await expect(table).toHaveCount(0);
+  await expect(page.locator('#chat-input')).toBeFocused();
+
+  // On a phone the file takes the whole screen and Back returns to the chat.
+  await page.setViewportSize({ width: 390, height: 740 });
+  await page.getByRole('button', { name: 'Open study-plan.md' }).click();
+  const mobile = page.getByRole('complementary', { name: 'File: study-plan.md' });
+  expect((await mobile.boundingBox())!.width).toBe(390);
+  await mobile.getByRole('button', { name: 'Back to chat' }).click();
+  await expect(mobile).toHaveCount(0);
+});
+
+test('an attached file can be reopened from the conversation, also after a reload', async ({
+  page,
+  account,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.route('**/api/assistant', (route) =>
+    route.fulfill({ json: { content: 'It is a short note.' } })
+  );
+  await workspace(page, account.cookies);
+  await page.getByLabel('Choose a document or image').setInputFiles({
+    name: 'notes.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('First line of my notes.\nSecond line.'),
+  });
+  await expect(page.locator('.attachment-pill')).toContainText('notes.txt');
+  await page.getByRole('button', { name: 'Send message' }).click();
+  await expect(page.locator('.markdown-content')).toContainText('It is a short note.');
+  await page.reload();
+  await expect(page.locator('[data-ready="true"]')).toBeVisible();
+  await page
+    .getByRole('button', { name: /^Open conversation Summarize this document/ })
+    .first()
+    .click();
+  await page.getByRole('button', { name: 'Open notes.txt' }).click();
+  const panel = page.getByRole('complementary', { name: 'File: notes.txt' });
+  await expect(panel.locator('.viewer-text')).toContainText('Second line.');
+  await panel.getByRole('button', { name: 'Wrap lines' }).click();
+  await expect(panel.locator('.viewer-text')).toHaveAttribute('data-wrap', 'false');
 });
 
 test('compact composer keeps controls and attachments inside its surface at mobile and desktop widths', async ({
@@ -955,7 +1089,7 @@ for (const mode of ['light', 'dark']) {
     await workspace(page, account.cookies);
     await audit();
     await page.locator('#chat-model').click();
-    await expect(page.getByRole('listbox')).toBeVisible();
+    await expect(page.getByRole('menu')).toBeVisible();
     await audit();
   });
 }

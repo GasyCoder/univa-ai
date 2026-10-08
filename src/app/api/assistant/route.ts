@@ -1,7 +1,14 @@
 import { getAuth, getAuthDatabase } from '@/lib/auth';
-import { MODELS, ROLES, type ChatMessage, type UniversityRole } from '@/lib/chat-models';
+import {
+  MODELS,
+  ROLES,
+  reasoningLevelsFor,
+  type ChatMessage,
+  type ReasoningLevel,
+  type UniversityRole,
+} from '@/lib/chat-models';
 import { buildAssistantRequest } from '@/lib/assistant-request';
-import { completeWithApmix, ApmixError } from '@/lib/apmix';
+import { streamWithApmix, ApmixError } from '@/lib/apmix';
 
 export const runtime = 'nodejs';
 
@@ -62,6 +69,7 @@ export async function POST(request: Request) {
   )
     return failure('invalid_request', 400);
   const { model, role, messages } = body;
+  const reasoning = 'reasoning' in body ? body.reasoning : undefined;
   if (
     typeof model !== 'string' ||
     !MODELS.some((item) => item.id === model) ||
@@ -69,7 +77,10 @@ export async function POST(request: Request) {
     !ROLES.some((item) => item.id === role) ||
     !Array.isArray(messages) ||
     messages.length === 0 ||
-    messages.length > 100
+    messages.length > 100 ||
+    // A reasoning level is only accepted for a model that supports it.
+    (reasoning !== undefined &&
+      (typeof reasoning !== 'string' || !(reasoning in reasoningLevelsFor(model))))
   )
     return failure('invalid_request', 400);
   let total = 0;
@@ -111,11 +122,23 @@ export async function POST(request: Request) {
   if (!permit.changes) return failure('rate_limited', 429);
 
   try {
-    const content = await completeWithApmix(
-      buildAssistantRequest(sanitized, role as UniversityRole, model),
-      apiKey
+    const stream = await streamWithApmix(
+      buildAssistantRequest(
+        sanitized,
+        role as UniversityRole,
+        model,
+        reasoning as ReasoningLevel | undefined
+      ),
+      apiKey,
+      request.signal
     );
-    return Response.json({ content }, { headers: { 'Cache-Control': 'no-store' } });
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Accel-Buffering': 'no',
+      },
+    });
   } catch (error) {
     return error instanceof ApmixError
       ? failure(error.code, error.status)
