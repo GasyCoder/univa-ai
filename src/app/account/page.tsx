@@ -1,4 +1,3 @@
-import '@/app/account/account.css';
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { getAuth } from '@/lib/auth';
@@ -7,7 +6,7 @@ import { AccountSettings } from '@/components/account-settings';
 import { AuthGate } from '@/components/auth-gate';
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
-  title: 'Your account — UNUVIA',
+  title: 'Your account | UNUVIA',
   robots: { index: false, follow: false },
 };
 export default async function AccountPage({

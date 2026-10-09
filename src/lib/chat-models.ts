@@ -31,7 +31,7 @@ export interface AssistantRequest {
   max_tokens: number;
   system: string;
   messages: Pick<ChatMessage, 'role' | 'content'>[];
-  reasoning_effort?: string;
+  effort?: Effort;
 }
 
 export type ReasoningLevel = 'fast' | 'medium' | 'high' | 'extra_high';
@@ -77,25 +77,31 @@ export const ROLES: { id: UniversityRole; label: string; icon: string; focus: st
     focus: 'a staff member. Help prepare reports, notes, procedures, and clear responses.',
   },
 ];
+export type Effort = 'low' | 'medium' | 'high' | 'xhigh';
 export interface AssistantModel {
   id: string;
   label: string;
   description: string;
   badge: string;
   icon: string;
-  legacy?: boolean;
-  /** Reasoning levels this model accepts, mapped to the provider's `reasoning_effort` value. */
-  reasoning?: Partial<Record<ReasoningLevel, string>>;
+  /** Claude API list price in USD per million tokens; also micro-USD per token. */
+  price: { input: number; output: number };
+  /** Reasoning levels this model accepts, mapped to the Claude API `effort` value. */
+  reasoning: Partial<Record<ReasoningLevel, Effort>>;
 }
 
-// Checked against APMIX on 2026-10-08: claude-sonnet-4-6-free accepts `reasoning_effort` but
-// ignores it (no reasoning tokens); the other models are not in the current key's plan.
-// Add a mapping only once a model is verified to reason, e.g. { fast: 'low', high: 'high' }.
+const EFFORT: Record<ReasoningLevel, Effort> = {
+  fast: 'low',
+  medium: 'medium',
+  high: 'high',
+  extra_high: 'xhigh',
+};
+
 export const reasoningLevelsFor = (model: string) =>
   MODELS.find((item) => item.id === model)?.reasoning ?? {};
 
-// API identifiers checked against the APMIX catalog on 2026-10-08.
-// APMIX plan permissions are enforced by the provider; UNUVIA never substitutes models.
+// Claude API model identifiers and list prices, checked on 2026-10-09.
+// UNUVIA never substitutes the model a user selected.
 export const MODELS: AssistantModel[] = [
   {
     id: 'claude-sonnet-5-5',
@@ -103,6 +109,8 @@ export const MODELS: AssistantModel[] = [
     description: 'Lessons, writing, and everyday questions.',
     badge: 'Balanced',
     icon: 'sparkles',
+    price: { input: 2, output: 10 },
+    reasoning: EFFORT,
   },
   {
     id: 'claude-opus-5-5',
@@ -110,6 +118,8 @@ export const MODELS: AssistantModel[] = [
     description: 'Deep analysis and complex projects.',
     badge: 'Deep thinking',
     icon: 'layers',
+    price: { input: 4, output: 20 },
+    reasoning: EFFORT,
   },
   {
     id: 'claude-fable-5-1',
@@ -117,29 +127,35 @@ export const MODELS: AssistantModel[] = [
     description: 'Demanding research and complex reasoning.',
     badge: 'Research',
     icon: 'flask',
+    price: { input: 10, output: 50 },
+    reasoning: EFFORT,
   },
   {
-    id: 'claude-haiku-4-5',
-    label: 'Claude Haiku 4.5',
+    id: 'claude-haiku-5-5',
+    label: 'Claude Haiku 5.5',
     description: 'Quick answers and shorter tasks.',
     badge: 'Fast',
     icon: 'clock',
-  },
-  {
-    id: 'claude-sonnet-4-6',
-    label: 'Claude Sonnet 4.6',
-    description: 'For services using this earlier version.',
-    badge: 'Previous version',
-    icon: 'clock',
-    legacy: true,
-  },
-  {
-    id: 'claude-sonnet-4-6-free',
-    label: 'Claude Sonnet 4.6 Free',
-    description: 'Available on GasyCoderAI, within your workspace limits.',
-    badge: 'Free plan',
-    icon: 'book',
+    price: { input: 0.1, output: 0.5 },
+    reasoning: EFFORT,
   },
 ];
 
+export const FREE_MODEL = 'claude-haiku-5-5';
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
+
+export interface TokenUsage {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
+/** Cost in micro-USD: cache reads bill at 0.1x input, cache writes at 1.25x. */
+export function usageCost(model: string, usage: TokenUsage) {
+  const price = MODELS.find((item) => item.id === model)?.price;
+  if (!price) return 0;
+  return Math.ceil(
+    (usage.input + usage.cacheRead * 0.1 + usage.cacheWrite * 1.25) * price.input +
+      usage.output * price.output
+  );
+}

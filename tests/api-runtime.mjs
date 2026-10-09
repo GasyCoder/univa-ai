@@ -5,10 +5,11 @@ import { randomUUID } from 'node:crypto';
 import nextEnv from '@next/env';
 import { Pool } from 'pg';
 import ts from 'typescript';
+import * as anthropicSdk from '@anthropic-ai/sdk';
 
 nextEnv.loadEnvConfig(process.cwd(), true);
 export const origin = 'http://127.0.0.1:4200';
-export const key = 'apx_test_server_only';
+export const key = 'sk-ant-test-server-only';
 export const valid = {
   model: 'claude-sonnet-5-5',
   role: 'Researcher',
@@ -20,7 +21,8 @@ export async function setup({
   signedIn = true,
   configured = true,
   status = 200,
-  providerCode,
+  errorType = 'api_error',
+  stopReason = 'end_turn',
   content = 'An outline.',
   plan = 'pro',
   brokenDatabase = false,
@@ -63,7 +65,7 @@ export async function setup({
     process: {
       env: {
         BETTER_AUTH_URL: origin,
-        APMIX_API_KEY: configured ? key : '',
+        ANTHROPIC_API_KEY: configured ? key : '',
         ADMIN_EMAILS: 'admin@example.test',
         PRO_PRICE_MGA: '55000',
         PAYMENT_MOBILE_MONEY_INSTRUCTIONS: paymentConfigured
@@ -74,27 +76,65 @@ export async function setup({
           : '',
       },
     },
-    fetch: async (url, options) => {
-      if (url.endsWith('/models'))
+    fetch: async (input, options) => {
+      const url = String(input);
+      if (url.includes('/v1/models'))
         return Response.json({
-          data: [
-            { id: 'claude-sonnet-4-6-free' },
-            { id: 'claude-sonnet-5-5' },
-            { id: 'claude-opus-5-5' },
-          ],
+          data: ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'].map((id) => ({
+            id,
+            type: 'model',
+          })),
+          has_more: false,
+          first_id: null,
+          last_id: null,
         });
       calls.push({ url, options });
       if (status !== 200)
         return Response.json(
-          { error: { code: providerCode, message: `Private provider details ${key}` } },
+          { type: 'error', error: { type: errorType, message: `Private provider details ${key}` } },
           { status }
         );
-      const events = content
-        .split(/(?<= )/)
-        .map(
-          (delta) => `data: ${JSON.stringify({ choices: [{ delta: { content: delta } }] })}\n\n`
-        );
-      return new Response(events.join('') + 'data: [DONE]\n\n', {
+      const event = (data) => `event: ${data.type}\ndata: ${JSON.stringify(data)}\n\n`;
+      const deltas = content ? content.split(/(?<= )/) : [];
+      const events = [
+        event({
+          type: 'message_start',
+          message: {
+            id: 'msg_test',
+            type: 'message',
+            role: 'assistant',
+            model: JSON.parse(options.body).model,
+            content: [],
+            stop_reason: null,
+            stop_sequence: null,
+            usage: { input_tokens: 1000, output_tokens: 1 },
+          },
+        }),
+        ...(deltas.length
+          ? [
+              event({
+                type: 'content_block_start',
+                index: 0,
+                content_block: { type: 'text', text: '' },
+              }),
+              ...deltas.map((text) =>
+                event({
+                  type: 'content_block_delta',
+                  index: 0,
+                  delta: { type: 'text_delta', text },
+                })
+              ),
+              event({ type: 'content_block_stop', index: 0 }),
+            ]
+          : []),
+        event({
+          type: 'message_delta',
+          delta: { stop_reason: stopReason, stop_sequence: null },
+          usage: { output_tokens: 500 },
+        }),
+        event({ type: 'message_stop' }),
+      ];
+      return new Response(events.join(''), {
         headers: { 'Content-Type': 'text/event-stream' },
       });
     },
@@ -154,6 +194,14 @@ export async function setup({
     { context }
   );
   const serverOnly = new SyntheticModule([], () => {}, { context });
+  // The real SDK, sending its requests through the mocked fetch above.
+  const sdk = new SyntheticModule(
+    ['default'],
+    function () {
+      this.setExport('default', anthropicSdk.default);
+    },
+    { context }
+  );
   const cache = new Map();
   async function load(path) {
     if (cache.has(path)) return cache.get(path);
@@ -172,6 +220,7 @@ export async function setup({
       await route.link(async (specifier, parent) => {
         if (specifier === 'server-only') return serverOnly;
         if (specifier === 'node:crypto') return crypto;
+        if (specifier === '@anthropic-ai/sdk') return sdk;
         const dependency = specifier.startsWith('@/')
           ? resolve('src', specifier.slice(2))
           : resolve(dirname(parent.identifier), specifier);

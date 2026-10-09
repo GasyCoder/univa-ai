@@ -45,12 +45,12 @@ Actual Google sign-in depends on valid Google Console credentials and has not be
 
 `src/lib/plans.ts` defines entitlements used by both the server and UI:
 
-| Plan | Models                 | Requests per minute |
-| ---- | ---------------------- | ------------------- |
-| Free | Claude Sonnet 4.6 Free | 10                  |
-| Pro  | All configured models  | 30                  |
+| Plan | Models                                     | Requests per minute | Usage allowance |
+| ---- | ------------------------------------------ | ------------------- | --------------- |
+| Free | Claude Haiku 5.5                           | 10                  | $0.03 per day   |
+| Pro  | Claude Haiku, Sonnet, Opus 5.5 & Fable 5.1 | 30                  | $8 per 30 days  |
 
-The connected provider must support a model for it to be usable. Purchasing UNUVIA Pro does not grant the provider key new permissions or allowance. The currently connected key was observed to expose only Sonnet 4.6 Free; expanded model access requires a compatible provider plan.
+The allowance is the Claude API cost an account may consume over a rolling window. Each request records its input, output and cache tokens per account, day and model in `assistant_usage`, priced with the list prices in `src/lib/chat-models.ts`. A request is refused with `usage_limit` once the allowance is used; the Plan tab shows the percentage used, never a dollar amount. Update the prices and allowances when Anthropic's pricing or the Pro price changes. Claude Haiku 5.5 prompts above 100K tokens are billed at a higher rate that this estimate ignores.
 
 Pro lasts 30 days, with no automatic renewal. Regional prices are €12 for euro-area countries and $12 otherwise. The proposed Madagascar price is **not enabled until confirmed**: set `PRO_PRICE_MGA` to the whole-ariary amount after agreement. Until then, Madagascar also uses the default USD price. Country is saved in the profile; language supplies only a suggestion that the user can accept. USD/EUR amounts are stored in minor units; MGA amounts are stored as whole ariary.
 
@@ -81,9 +81,11 @@ Assistant links open a separate tab/window. The composer supports drag-and-drop,
 
 Supported attachments: TXT, MD, CSV, PDF, DOCX, XLSX, JPG and PNG, up to 10 MB. Text is extracted in the browser; images and scanned PDF pages use OCR in French/English, rather than vision-model inputs. Scanned PDF OCR reads up to the first ten pages. Document text is truncated at 190,000 characters with a notice. The originals are stored in IndexedDB on the current device, scoped to the signed-in account; the extracted text is sent with the question.
 
-Standalone chat uses authenticated `/api/assistant`, which forwards to [APMIX Chat Completions](https://apmix.ai/docs). Configure the server-only `APMIX_API_KEY`, then restart. `npm run apmix:check` reads the key's catalog without generating an answer. Public UI uses UNUVIA/GasyCoderAI branding; provider names here describe technical configuration.
+Standalone chat uses authenticated `/api/assistant`, which calls the [Claude API](https://platform.claude.com/docs) (Messages API) with the official `@anthropic-ai/sdk`. Create a key in the Claude Console, set the server-only `ANTHROPIC_API_KEY`, then restart. `npm run claude:check` reads the key's model catalog without generating an answer. `src/lib/claude.ts` is the only module that talks to Anthropic.
 
-The endpoint checks the session, origin, input bounds and account's plan; it limits JSON to 2 MB, total message content to 400,000 characters, each message to 200,000 characters and history to 100 messages. Per-account minute counters are atomic PostgreSQL updates. No model is substituted during a request. Provider errors are mapped to safe user messages without returning credentials or internal details.
+Each request streams, caches the conversation prefix (`cache_control`), sends the chosen reasoning level as `output_config.effort`, and allows up to 16,000 output tokens. An answer cut off at that limit ends with a visible notice. A request declined by Claude's safeguards returns `refused`; on Sonnet 5.5, Opus 5.5 and Fable 5.1 the server-side refusal fallback (`fallbacks: "default"`) is enabled.
+
+The endpoint checks the session, origin, input bounds and account's plan; it limits JSON to 2 MB, total message content to 400,000 characters, each message to 200,000 characters and history to 100 messages. Per-account minute counters are atomic PostgreSQL updates. UNUVIA does not substitute the selected model. Claude API errors are mapped to safe user messages without returning credentials or internal details.
 
 Responses stream as UTF-8 text while generation is in progress. Stop cancels generation and retains the received text. Markdown/code/document artifacts can open in a resizable side panel and be downloaded. The conversation follows the response until the reader scrolls up. The `window.claude.complete()` bridge remains supported for embedded workspaces and tests; the product does not fabricate responses.
 
@@ -91,11 +93,15 @@ Conversation history remains local under `univa-chats-v2:<user-id>`, limited to 
 
 ## UI and branding
 
-The public brand is UNUVIA, with the descriptor AI Workspace for Universities. The site uses the supplied university positioning and a 1,320 px maximum content width. Blue, green and gray colors support both themes. Inter is self-hosted under the SIL Open Font License; Georgia is used for selected editorial headings.
+The public brand is UNUVIA, with the descriptor AI Workspace for Universities. It is published by GasyCoder at `https://unuvia.gasycoder.com`; the contact address is `contact@gasycoder.com`. Both live in `src/lib/site.ts`.
 
-shadcn/ui sources live in `src/components/ui`. Assistant styling is scoped in `src/app/assistant/workspace.css`; account/admin styling is in `src/app/account/account.css`. Below 1,024 px, the assistant has bottom navigation and a Chats drawer. The desktop sidebar collapses to an icon rail. Account/admin forms work at 320 px and use 44 px touch controls.
+All pages use shadcn/ui: buttons, inputs, native selects, cards, tabs, dialogs, sheets, menus, tooltips, avatars, sidebars, resizable panels, tables, toggle groups, empty states, skeletons, scroll areas, spinners and keyboard hints. Sources live in `src/components/ui`; `components.json` configures the New York style with the neutral palette and Lucide icons. Add missing components with `npx shadcn add <component>`.
 
-Existing asset filenames, old HTML redirects, browser storage keys, `UNIVA_*` script options and `contact@univa.ai` remain technical/contact identifiers for compatibility. The live UI uses UNUVIA.
+`src/app/globals.css` defines the shared semantic tokens for light and dark mode. The neutral palette uses a slightly darker muted foreground in light mode to meet text contrast requirements on muted surfaces. Page layouts use Tailwind utilities and the components CSS layer, leaving shadcn variants, focus rings and disabled states to the primitives. There are no separate account or assistant palette overrides. File content rendering and syntax highlighting retain their specialized styles.
+
+Below 1,024 px, the assistant has bottom navigation and a Chats drawer. The desktop sidebar collapses to an icon rail. Account/admin forms work at 320 px, and primary mobile controls have touch targets of at least 44 px.
+
+Existing asset filenames, old HTML redirects, browser storage keys and `UNIVA_*` script options remain technical identifiers for compatibility. The live UI uses UNUVIA.
 
 ## Checks
 
@@ -107,7 +113,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-A local PostgreSQL connection is required. API tests use temporary schemas in the configured database, run the real SQL/routes with mocked auth/provider HTTP, and remove their schemas afterward. Browser tests start the compiled app on port 4217 (override `UNIVA_TEST_PORT`), use a separate temporary PostgreSQL schema and mocked payment instructions, disable the live provider key and clean up afterward. They do not create accounts in the development schema or use real model credits. Build before browser tests; no existing development server needs to be stopped.
+A local PostgreSQL connection is required. API tests use temporary schemas in the configured database, run the real SQL/routes with mocked auth/provider HTTP, and remove their schemas afterward. Browser tests start the compiled app on port 4217 (override `UNIVA_TEST_PORT`), use a separate temporary PostgreSQL schema and mocked payment instructions, disable the live Claude API key and clean up afterward. They do not create accounts in the development schema or use real model credits. Build before browser tests; no existing development server needs to be stopped.
 
 The suite covers profile persistence and photo resizing, account isolation, password changes/deletion, manual payment review, duplicate protection, verified administrator access, expiry, model/rate entitlements, responsive UI, streaming, documents/images, chat artifacts, local history, Google configuration flows and Axe accessibility. Actual Google OAuth and real payment collection are outside these automated tests.
 

@@ -68,9 +68,10 @@ export function ArtifactCard({
   onOpen: (artifact: Artifact) => void;
 }) {
   return (
-    <button
+    <Button
+      variant="outline"
       type="button"
-      className="artifact-card"
+      className="artifact-card h-auto justify-start whitespace-normal p-3 data-[active]:bg-accent"
       data-active={active || undefined}
       aria-label={`Open ${artifact.name}`}
       aria-pressed={active}
@@ -89,7 +90,7 @@ export function ArtifactCard({
           )}
         </span>
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -296,58 +297,5 @@ export function ArtifactPanel({
         <ArtifactViewer artifact={artifact} userId={userId} />
       </div>
     </aside>
-  );
-}
-
-/** The bar between chat and panel: drag, or use the arrow keys. */
-export function ResizeHandle({
-  size,
-  onResize,
-  onReset,
-}: {
-  size: number;
-  onResize: (percent: number) => void;
-  onReset: () => void;
-}) {
-  return (
-    <div
-      className="artifact-resize"
-      role="separator"
-      aria-orientation="vertical"
-      aria-label="Resize file panel"
-      aria-valuenow={Math.round(size)}
-      aria-valuemin={25}
-      aria-valuemax={65}
-      tabIndex={0}
-      onDoubleClick={onReset}
-      onKeyDown={(e) => {
-        if (e.key === 'ArrowLeft') onResize(size + 2);
-        else if (e.key === 'ArrowRight') onResize(size - 2);
-        else if (e.key === 'Home') onReset();
-        else return;
-        e.preventDefault();
-      }}
-      onPointerDown={(e) => {
-        const handle = e.currentTarget;
-        const split = handle.parentElement;
-        if (!split) return;
-        e.preventDefault();
-        handle.setPointerCapture(e.pointerId);
-        split.dataset.resizing = 'true';
-        const move = (event: PointerEvent) => {
-          const box = split.getBoundingClientRect();
-          onResize(((box.right - event.clientX) / box.width) * 100);
-        };
-        const stop = () => {
-          delete split.dataset.resizing;
-          handle.removeEventListener('pointermove', move);
-          handle.removeEventListener('pointerup', stop);
-          handle.removeEventListener('pointercancel', stop);
-        };
-        handle.addEventListener('pointermove', move);
-        handle.addEventListener('pointerup', stop);
-        handle.addEventListener('pointercancel', stop);
-      }}
-    />
   );
 }

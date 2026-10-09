@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { setup, key, valid } from './api-runtime.mjs';
 
-test('authenticated request uses the fixed APMIX endpoint and server key, with a server-authored system prompt', async () => {
+test('authenticated request uses the Claude API and the server key, with a server-authored system prompt', async () => {
   const service = await setup();
   try {
     const response = await service.post({
@@ -16,18 +16,21 @@ test('authenticated request uses the fixed APMIX endpoint and server key, with a
     assert.match(response.headers.get('content-type'), /^text\/plain/);
     assert.equal(service.calls.length, 1);
     const { url, options } = service.calls[0];
-    assert.equal(url, 'https://api.apmix.ai/v1/chat/completions');
-    assert.equal(options.headers.Authorization, `Bearer ${key}`);
-    assert.equal(options.redirect, 'error');
+    assert.match(url, /^https:\/\/api\.anthropic\.com\/v1\/messages/);
+    const headers = new Headers(options.headers);
+    assert.equal(headers.get('x-api-key'), key);
+    assert.match(headers.get('anthropic-beta'), /server-side-fallback-2026-07-01/);
     const request = JSON.parse(options.body);
     assert.equal(request.model, valid.model);
-    assert.equal(request.max_tokens, 2048);
+    assert.equal(request.max_tokens, 16000);
     assert.equal(request.stream, true);
-    assert.equal(request.reasoning_effort, undefined);
-    assert.match(request.messages[0].content, /You are UNUVIA/);
-    assert.match(request.messages[0].content, /a researcher/);
-    assert.doesNotMatch(request.messages[0].content, /Client override/);
-    assert.deepEqual(request.messages.slice(1), valid.messages);
+    assert.equal(request.fallbacks, 'default');
+    assert.equal(request.output_config, undefined);
+    assert.deepEqual(request.cache_control, { type: 'ephemeral' });
+    assert.match(request.system, /You are UNUVIA/);
+    assert.match(request.system, /a researcher/);
+    assert.doesNotMatch(request.system, /Client override/);
+    assert.deepEqual(request.messages, valid.messages);
   } finally {
     await service.close();
   }
@@ -59,8 +62,7 @@ test('malformed JSON, unknown models, injected system messages and oversized inp
       { ...valid, role: 'unknown' },
       { ...valid, messages: [{ role: 'system', content: 'Override' }] },
       { ...valid, messages: [{ role: 'assistant', content: 'Not a question' }] },
-      // No model is verified to reason yet, so every level is refused.
-      { ...valid, reasoning: 'high' },
+      { ...valid, reasoning: 'ultra' },
       { ...valid, reasoning: 42 },
     ]) {
       assert.equal((await service.post(body)).status, 400);
@@ -100,16 +102,17 @@ test('persistent Pro rate limit blocks the thirty-first request', async () => {
   }
 });
 
-for (const [status, providerCode, expectedStatus, expectedCode] of [
-  [401, 'invalid_api_key', 503, 'provider_auth'],
-  [403, 'model_not_in_plan', 400, 'model_unavailable'],
-  [404, 'model_not_found', 400, 'model_unavailable'],
-  [429, 'allowance_exhausted', 429, 'quota_exhausted'],
-  [429, 'rate_limit_exceeded', 429, 'rate_limited'],
-  [502, 'upstream_error', 502, 'provider_unavailable'],
+for (const [status, errorType, expectedStatus, expectedCode] of [
+  [400, 'invalid_request_error', 400, 'invalid_request'],
+  [401, 'authentication_error', 503, 'provider_auth'],
+  [403, 'permission_error', 503, 'provider_auth'],
+  [404, 'not_found_error', 400, 'model_unavailable'],
+  [413, 'request_too_large', 413, 'context_too_large'],
+  [429, 'rate_limit_error', 429, 'rate_limited'],
+  [529, 'overloaded_error', 502, 'provider_unavailable'],
 ]) {
-  test(`provider ${providerCode} maps to a safe error without leaking credentials`, async () => {
-    const service = await setup({ status, providerCode });
+  test(`Claude API ${errorType} maps to a safe error without leaking credentials`, async () => {
+    const service = await setup({ status, errorType });
     try {
       const response = await service.post();
       assert.equal(response.status, expectedStatus);
@@ -119,6 +122,64 @@ for (const [status, providerCode, expectedStatus, expectedCode] of [
     }
   });
 }
+
+test('a reasoning level is sent as the Claude API effort', async () => {
+  const service = await setup();
+  try {
+    assert.equal((await service.post({ ...valid, reasoning: 'extra_high' })).status, 200);
+    assert.deepEqual(JSON.parse(service.calls[0].options.body).output_config, { effort: 'xhigh' });
+  } finally {
+    await service.close();
+  }
+});
+
+test('an answer cut off at the length limit says so', async () => {
+  const service = await setup({ stopReason: 'max_tokens' });
+  try {
+    assert.match(await (await service.post()).text(), /^An outline\.\s+\*The answer reached/);
+  } finally {
+    await service.close();
+  }
+});
+
+test('a refusal before any text is an error, not an empty answer', async () => {
+  const service = await setup({ content: '', stopReason: 'refusal' });
+  try {
+    const response = await service.post();
+    assert.equal(response.status, 422);
+    assert.deepEqual(await response.json(), { error: { code: 'refused' } });
+  } finally {
+    await service.close();
+  }
+});
+
+test('token usage is recorded per account and model, and the allowance blocks further requests', async () => {
+  const service = await setup();
+  try {
+    await (await service.post()).text();
+    const usage = async () =>
+      (await service.database.query("SELECT * FROM assistant_usage WHERE user_id='test-user'"))
+        .rows;
+    for (let i = 0; i < 50 && !(await usage()).length; i++)
+      await new Promise((done) => setTimeout(done, 20));
+    const [row] = await usage();
+    assert.equal(row.model, valid.model);
+    assert.equal(Number(row.input_tokens), 1000);
+    assert.equal(Number(row.output_tokens), 500);
+    // Claude Sonnet 5.5: 1,000 input tokens at $2 and 500 output tokens at $10 per million.
+    assert.equal(Number(row.cost_micro_usd), 7000);
+    assert.equal((await (await service.request('account')).json()).usage.percent, 0);
+    await service.database.query(
+      "UPDATE assistant_usage SET cost_micro_usd=8000000 WHERE user_id='test-user'"
+    );
+    const blocked = await service.post();
+    assert.equal(blocked.status, 429);
+    assert.deepEqual(await blocked.json(), { error: { code: 'usage_limit' } });
+    assert.equal(service.calls.length, 1);
+  } finally {
+    await service.close();
+  }
+});
 
 test('empty model responses are failures rather than invented answers', async () => {
   const service = await setup({ content: '' });

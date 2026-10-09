@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { getAuth, getAuthDatabase } from './auth';
 import { transaction } from './db';
 import { PLANS, proPrice, suggestedCountry, type PlanId, type Profile } from './plans';
-import { getApmixModelIds } from './apmix';
+import { getClaudeModelIds } from './claude';
+import { usageCost, type TokenUsage } from './chat-models';
 
 export function isAdmin(user: { email: string; emailVerified: boolean }) {
   return (
@@ -47,6 +48,42 @@ export async function subscriptionFor(userId: string) {
       : null,
   };
 }
+/** Claude API cost used over the plan's rolling window, against its allowance. */
+export async function usageFor(userId: string, plan: PlanId) {
+  const { days, microUsd } = PLANS[plan].allowance;
+  const db = await getAuthDatabase();
+  const used = Number(
+    (
+      await db.query(
+        'SELECT COALESCE(SUM(cost_micro_usd),0) AS used FROM assistant_usage WHERE user_id=$1 AND day > CURRENT_DATE - $2::int',
+        [userId, days]
+      )
+    ).rows[0].used
+  );
+  return { percent: Math.min(100, Math.floor((used / microUsd) * 100)), days };
+}
+export async function recordUsage(userId: string, model: string, usage: TokenUsage) {
+  const db = await getAuthDatabase();
+  await db.query(
+    `INSERT INTO assistant_usage (user_id,day,model,requests,input_tokens,output_tokens,cache_read_tokens,cache_write_tokens,cost_micro_usd)
+    VALUES ($1,CURRENT_DATE,$2,1,$3,$4,$5,$6,$7)
+    ON CONFLICT(user_id,day,model) DO UPDATE SET requests=assistant_usage.requests+1,
+      input_tokens=assistant_usage.input_tokens+excluded.input_tokens,
+      output_tokens=assistant_usage.output_tokens+excluded.output_tokens,
+      cache_read_tokens=assistant_usage.cache_read_tokens+excluded.cache_read_tokens,
+      cache_write_tokens=assistant_usage.cache_write_tokens+excluded.cache_write_tokens,
+      cost_micro_usd=assistant_usage.cost_micro_usd+excluded.cost_micro_usd`,
+    [
+      userId,
+      model,
+      usage.input,
+      usage.output,
+      usage.cacheRead,
+      usage.cacheWrite,
+      usageCost(model, usage),
+    ]
+  );
+}
 export function configuredPayments() {
   return [
     {
@@ -84,7 +121,8 @@ export async function accountData(
     subscription,
     isAdmin: isAdmin(user),
     hasPassword,
-    providerModelIds: await getApmixModelIds(),
+    providerModelIds: await getClaudeModelIds(),
+    usage: await usageFor(user.id, plan),
     paymentMethods: configuredPayments(),
     price: accountPrice(profile.country),
     countrySuggestion: suggestedCountry(language),

@@ -70,16 +70,18 @@ function makeAuth() {
   return {
     instance,
     database,
+    schema,
     ready: initialize(),
   };
 }
 
-// Keep one database and one migration promise through development hot reloads.
+// Keep one database and one migration promise through development hot reloads; an edited
+// schema is applied again without restarting the server.
 const globalAuth = globalThis as typeof globalThis & {
   unuviaPostgresAuth?: ReturnType<typeof makeAuth>;
 };
 export async function getAuth() {
-  if (!globalAuth.unuviaPostgresAuth?.database) globalAuth.unuviaPostgresAuth = makeAuth();
+  if (globalAuth.unuviaPostgresAuth?.schema !== schema) globalAuth.unuviaPostgresAuth = makeAuth();
   const auth = globalAuth.unuviaPostgresAuth;
   try {
     await auth.ready;

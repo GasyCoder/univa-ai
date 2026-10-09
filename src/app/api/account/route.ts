@@ -7,7 +7,7 @@ import {
   profileFor,
   requireAccount,
 } from '@/lib/account';
-import { getApmixModelIds } from '@/lib/apmix';
+import { getClaudeModelIds } from '@/lib/claude';
 import { transaction } from '@/lib/db';
 import { COUNTRIES } from '@/lib/plans';
 import { ROLES, reasoningLevelsFor } from '@/lib/chat-models';
@@ -53,7 +53,7 @@ export async function PUT(request: Request) {
       next.theme = body.theme as typeof profile.theme;
     }
     if ('default_model' in body) {
-      const { modelIds } = await assistantAccess(user.id, await getApmixModelIds());
+      const { modelIds } = await assistantAccess(user.id, await getClaudeModelIds());
       if (typeof body.default_model !== 'string' || !modelIds.includes(body.default_model))
         throw new AccountError('model_not_allowed', 422, 'default_model');
       next.default_model = body.default_model;

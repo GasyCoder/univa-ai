@@ -384,7 +384,7 @@ test('all models are selectable and sent using their API identifiers', async ({
     ['Claude Opus 5.5', 'claude-opus-5-5'],
     ['Claude Sonnet 5.5', 'claude-sonnet-5-5'],
     ['Claude Fable 5.1', 'claude-fable-5-1'],
-    ['Claude Haiku 4.5', 'claude-haiku-4-5'],
+    ['Claude Haiku 5.5', 'claude-haiku-5-5'],
   ]) {
     await page.locator('#chat-model').click();
     await page.getByRole('menuitemradio', { name: label }).click();
@@ -407,7 +407,7 @@ test('missing model service preserves prompt and attached file', async ({ page, 
   });
   await expect(page.locator('.attachment-pill')).toContainText('notes.md');
   await page.getByRole('button', { name: 'Send message' }).click();
-  await expect(page.locator('[data-slot=alert]')).toContainText('isn’t connected yet');
+  await expect(page.locator('[data-sonner-toast]')).toContainText('isn’t connected yet');
   await expect(page.locator('#chat-input')).toHaveValue('Summarize my notes');
   await expect(page.locator('.attachment-pill')).toContainText('notes.md');
   await page.getByRole('button', { name: 'Remove attachment' }).click();
@@ -433,8 +433,8 @@ test('documents and images are read as text before sending', async ({ page, acco
     await expect(page.locator('.attachment-pill')).toContainText(name, { timeout: 120000 });
     await page.locator('#chat-input').fill('Summarize');
     await page.getByRole('button', { name: 'Send message' }).click();
-    await expect(page.locator('[data-slot=alert]')).toBeVisible();
-    expect(body).toMatch(pattern);
+    await expect.poll(() => body).toMatch(pattern);
+    await expect(page.locator('[data-sonner-toast]')).toBeVisible();
     await page.getByRole('button', { name: 'Remove attachment' }).click();
   }
 });
@@ -447,7 +447,7 @@ test('a long document is truncated, not refused', async ({ page, account }) => {
     buffer: Buffer.from('word '.repeat(60000)),
   });
   await expect(page.locator('.attachment-pill')).toContainText('truncated to fit');
-  await expect(page.locator('[data-slot=alert]')).toHaveCount(0);
+  await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
 });
 
 test('a file dropped anywhere on the window is attached', async ({ page, account }) => {
@@ -551,7 +551,7 @@ test('markdown is safe and failed requests can be retried', async ({ page, accou
   await workspace(page, account.cookies);
   await page.locator('#chat-input').fill('A useful question');
   await page.getByRole('button', { name: 'Send message' }).click();
-  await expect(page.locator('[data-slot=alert]')).toContainText('Too many requests');
+  await expect(page.locator('[data-sonner-toast]')).toContainText('Too many requests');
   await page.getByRole('button', { name: 'Try again' }).click();
   await expect(page.locator('.markdown-content strong')).toHaveText('Verified response');
   await expect(page.locator('.markdown-content script')).toHaveCount(0);
@@ -615,7 +615,10 @@ for (const [width, mode] of [
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
         .analyze();
       expect(
-        result.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) }))
+        result.violations.map((v) => ({
+          id: v.id,
+          nodes: v.nodes.map((n) => ({ target: n.target, summary: n.failureSummary })),
+        }))
       ).toEqual([]);
     };
     await expect(sidebar.locator('.history-item')).toHaveCount(3);
@@ -873,16 +876,16 @@ test('files written in a response open beside the chat and can be resized, maxim
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
     .analyze();
   expect(accessibility.violations).toEqual([]);
-  await panel.getByRole('button', { name: 'Source' }).click();
+  await panel.getByRole('radio', { name: 'Source' }).click();
   await expect(panel.locator('.viewer-source')).toContainText('# Study plan');
 
   // Resizing with the keyboard is remembered.
   const handle = page.getByRole('separator', { name: 'Resize file panel' });
-  await expect(handle).toHaveAttribute('aria-valuenow', '40');
+  await expect(handle).toHaveAttribute('aria-valuenow', '60');
   await handle.focus();
   await page.keyboard.press('ArrowLeft');
-  await expect(handle).toHaveAttribute('aria-valuenow', '42');
-  expect(await page.evaluate(() => localStorage.getItem('univa-artifact-panel-size'))).toBe('42');
+  await expect(handle).toHaveAttribute('aria-valuenow', '55');
+  expect(await page.evaluate(() => localStorage.getItem('univa-artifact-panel-size'))).toBe('45');
   const chatWidth = (await page.locator('#chat-content').boundingBox())!.width;
   const panelWidth = (await panel.boundingBox())!.width;
   expect(panelWidth / (panelWidth + chatWidth)).toBeGreaterThan(0.4);
@@ -1037,7 +1040,7 @@ test('standalone assistant sends attachments through the server API and retries 
     expect(body.messages).toHaveLength(1);
     expect(body.messages[0].content).toContain('Research notes from my document');
     return attempt++ === 0
-      ? route.fulfill({ status: 429, json: { error: { code: 'quota_exhausted' } } })
+      ? route.fulfill({ status: 429, json: { error: { code: 'usage_limit' } } })
       : route.fulfill({ json: { content: '**Research outline**\nA useful next step.' } });
   });
   await workspace(page, account.cookies);
@@ -1050,7 +1053,7 @@ test('standalone assistant sends attachments through the server API and retries 
     buffer: Buffer.from('Research notes from my document'),
   });
   await page.getByRole('button', { name: 'Send message' }).click();
-  await expect(page.locator('[data-slot="alert"]')).toContainText('usage limit');
+  await expect(page.locator('[data-sonner-toast]')).toContainText('usage limit');
   await expect(page.locator('.message.user')).toHaveCount(1);
   await page.getByRole('button', { name: 'Try again', exact: true }).click();
   await expect(page.locator('.markdown-content strong')).toHaveText('Research outline');
@@ -1098,12 +1101,17 @@ for (const mode of ['light', 'dark']) {
   }) => {
     await page.addInitScript((theme) => localStorage.setItem('theme', theme), mode);
     await page.goto('/');
+    await expect(page.locator('html')).toHaveClass(new RegExp(mode));
+    await expect(page.getByRole('button', { name: 'Get Pro', exact: true })).toBeEnabled();
     const audit = async () => {
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
         .analyze();
       expect(
-        results.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) }))
+        results.violations.map((v) => ({
+          id: v.id,
+          nodes: v.nodes.map((n) => ({ target: n.target, summary: n.failureSummary })),
+        }))
       ).toEqual([]);
     };
     await audit();

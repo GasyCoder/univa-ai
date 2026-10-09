@@ -19,6 +19,25 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from '@/components/ui/empty';
+import {
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarInput,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarMenuAction,
+} from '@/components/ui/sidebar';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -116,18 +135,22 @@ export function AssistantSidebar({
   }
 
   return (
-    <aside
+    <Sidebar
+      collapsible="none"
+      role="complementary"
       id={mobile ? 'mobile-chat-sidebar' : 'chat-sidebar'}
-      className={`chat-sidebar workspace-sidebar ${mobile ? 'mobile-sidebar' : 'desktop-sidebar'}`}
+      className={`chat-sidebar workspace-sidebar border-r p-3 ${mobile ? 'mobile-sidebar w-full' : collapsed ? 'desktop-sidebar hidden w-20 lg:flex' : 'desktop-sidebar hidden w-72 lg:flex'}`}
       data-collapsed={collapsed}
       aria-label="Your conversations"
     >
-      <div className="workspace-sidebar-header">
+      <SidebarHeader className="workspace-sidebar-header p-0">
         {/* Like ChatGPT/Claude: the toggle lives in the sidebar. Collapsed, the logo becomes it. */}
         {collapsed && onToggleCollapse ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 type="button"
                 className="workspace-rail-toggle"
                 aria-label="Expand sidebar"
@@ -137,7 +160,7 @@ export function AssistantSidebar({
               >
                 <img src="/assets/univa-icon.png" alt="" width="32" height="32" />
                 <PanelLeftOpen aria-hidden="true" />
-              </button>
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Expand sidebar</TooltipContent>
           </Tooltip>
@@ -174,12 +197,14 @@ export function AssistantSidebar({
             <Badge variant="outline">{plan === 'pro' ? 'Pro' : 'Free'}</Badge>
           </div>
         )}
-      </div>
+      </SidebarHeader>
 
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
             ref={newButton}
+            variant="secondary"
+            size={collapsed ? 'icon' : 'default'}
             className="workspace-new-chat"
             onClick={() => {
               setQuery('');
@@ -200,7 +225,7 @@ export function AssistantSidebar({
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
-              className="workspace-rail-action"
+              className="workspace-rail-action size-9"
               aria-label="Search conversations"
               onClick={() => {
                 focusSearch.current = true;
@@ -222,7 +247,8 @@ export function AssistantSidebar({
           </div>
           <div className="workspace-search">
             <Search aria-hidden="true" />
-            <Input
+            <SidebarInput
+              className="pl-9 pr-9"
               ref={search}
               type="search"
               aria-label="Search conversations"
@@ -239,94 +265,100 @@ export function AssistantSidebar({
         </>
       )}
 
-      <nav className="chat-history workspace-history" aria-label="Conversation history">
-        {!collapsed &&
-          (filtered.length ? (
-            <ul>
-              {filtered.map((chat) => (
-                <li
-                  key={chat.id}
-                  className={`history-item ${chat.id === currentId ? 'active' : ''}`}
-                >
-                  <Button
-                    variant="ghost"
-                    onClick={() => onOpenChat(chat.id)}
-                    aria-current={chat.id === currentId ? 'true' : undefined}
-                    aria-label={`Open conversation ${chat.title}`}
+      <SidebarContent className="chat-history workspace-history mt-3">
+        <nav aria-label="Conversation history">
+          {!collapsed &&
+            (filtered.length ? (
+              <SidebarMenu>
+                {filtered.map((chat) => (
+                  <SidebarMenuItem
+                    key={chat.id}
+                    className={`history-item ${chat.id === currentId ? 'active' : ''}`}
                   >
-                    <MessageSquare />
-                    <span className="workspace-history-copy">
-                      <strong title={chat.title}>{chat.title}</strong>
-                      <small>
-                        {chat.messages.length} {chat.messages.length === 1 ? 'message' : 'messages'}
-                      </small>
-                    </span>
-                  </Button>
-                  <DropdownMenu modal={false}>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="workspace-conversation-menu"
-                        aria-label={`Conversation options for ${chat.title}`}
-                        disabled={loading}
-                        onPointerDown={(event) => {
-                          actionTrigger.current = event.currentTarget;
-                        }}
-                        onKeyDown={(event) => {
-                          actionTrigger.current = event.currentTarget;
-                        }}
-                      >
-                        <MoreHorizontal />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="start"
-                      sideOffset={6}
-                      collisionPadding={12}
-                      className="workspace-action-menu"
-                      onCloseAutoFocus={(event) => {
-                        if (action) event.preventDefault();
-                      }}
+                    <SidebarMenuButton
+                      size="lg"
+                      isActive={chat.id === currentId}
+                      onClick={() => onOpenChat(chat.id)}
+                      aria-current={chat.id === currentId ? 'true' : undefined}
+                      aria-label={`Open conversation ${chat.title}`}
                     >
-                      <DropdownMenuItem onSelect={() => startAction('rename', chat)}>
-                        <Pencil /> Rename
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onSelect={() => startAction('delete', chat)}
+                      <MessageSquare />
+                      <span className="workspace-history-copy">
+                        <strong title={chat.title}>{chat.title}</strong>
+                        <small>
+                          {chat.messages.length}{' '}
+                          {chat.messages.length === 1 ? 'message' : 'messages'}
+                        </small>
+                      </span>
+                    </SidebarMenuButton>
+                    <DropdownMenu modal={false}>
+                      <DropdownMenuTrigger asChild>
+                        <SidebarMenuAction
+                          className="workspace-conversation-menu"
+                          aria-label={`Conversation options for ${chat.title}`}
+                          disabled={loading}
+                          onPointerDown={(event) => {
+                            actionTrigger.current = event.currentTarget;
+                          }}
+                          onKeyDown={(event) => {
+                            actionTrigger.current = event.currentTarget;
+                          }}
+                        >
+                          <MoreHorizontal />
+                        </SidebarMenuAction>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="start"
+                        sideOffset={6}
+                        collisionPadding={12}
+                        className="workspace-action-menu"
+                        onCloseAutoFocus={(event) => {
+                          if (action) event.preventDefault();
+                        }}
                       >
-                        <Trash2 /> Delete conversation
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="workspace-history-empty">
-              <span className="workspace-empty-icon">
-                {query.trim() ? <Search /> : <MessageSquare />}
-              </span>
-              <strong>{query.trim() ? 'No matching conversations' : 'No conversations yet'}</strong>
-              <p>
-                {query.trim()
-                  ? 'Try a different name or clear your search.'
-                  : 'Start a chat. You can come back to it here.'}
-              </p>
-              {query.trim() && (
-                <Button variant="ghost" onClick={clearSearch}>
-                  Clear search
-                </Button>
-              )}
-            </div>
-          ))}
-      </nav>
+                        <DropdownMenuItem onSelect={() => startAction('rename', chat)}>
+                          <Pencil /> Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() => startAction('delete', chat)}
+                        >
+                          <Trash2 /> Delete conversation
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            ) : (
+              <Empty className="workspace-history-empty px-2 py-8 md:p-4">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    {query.trim() ? <Search /> : <MessageSquare />}
+                  </EmptyMedia>
+                  <EmptyTitle className="text-sm">
+                    {query.trim() ? 'No matching conversations' : 'No conversations yet'}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {query.trim()
+                      ? 'Try a different name or clear your search.'
+                      : 'Start a chat. You can come back to it here.'}
+                  </EmptyDescription>
+                </EmptyHeader>
+                {query.trim() && (
+                  <Button variant="ghost" onClick={clearSearch}>
+                    Clear search
+                  </Button>
+                )}
+              </Empty>
+            ))}
+        </nav>
+      </SidebarContent>
 
-      <div className="chat-sidebar-bottom workspace-sidebar-footer">
+      <SidebarFooter className="chat-sidebar-bottom workspace-sidebar-footer p-0">
         {!collapsed && (
-          <Button variant="ghost" asChild className="workspace-home-link">
+          <Button variant="ghost" asChild className="workspace-home-link justify-start text-xs">
             <Link href="/">
               <ArrowLeft /> Back to website
             </Link>
@@ -339,14 +371,15 @@ export function AssistantSidebar({
         )}
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="chat-profile" aria-label="Account menu">
-              <span className="profile-avatar" aria-hidden="true">
-                {user.image ? (
-                  <img src={user.image} alt="" className="size-full rounded-full object-cover" />
-                ) : (
-                  avatar.toUpperCase()
-                )}
-              </span>
+            <Button
+              variant="ghost"
+              className="chat-profile h-auto min-h-12 w-full justify-start whitespace-normal px-2 py-2 text-left"
+              aria-label="Account menu"
+            >
+              <Avatar className="profile-avatar size-8">
+                <AvatarImage src={user.image || undefined} alt="" />
+                <AvatarFallback>{avatar.toUpperCase()}</AvatarFallback>
+              </Avatar>
               {!collapsed && (
                 <>
                   <span className="workspace-profile-copy">
@@ -365,7 +398,7 @@ export function AssistantSidebar({
             align="start"
             sideOffset={8}
             collisionPadding={12}
-            className="workspace-account-menu workspace-action-menu"
+            className="workspace-account-menu workspace-action-menu min-w-60"
           >
             <DropdownMenuLabel>
               <strong>{user.name}</strong>
@@ -397,7 +430,7 @@ export function AssistantSidebar({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
+      </SidebarFooter>
 
       <Dialog
         open={!!action}
@@ -406,7 +439,7 @@ export function AssistantSidebar({
         }}
       >
         <DialogContent
-          className="workspace-conversation-dialog"
+          className="workspace-conversation-dialog max-h-[calc(100dvh-2rem)] overflow-y-auto"
           onOpenAutoFocus={(event) => {
             event.preventDefault();
             if (action?.kind === 'rename') {
@@ -435,6 +468,7 @@ export function AssistantSidebar({
           </DialogHeader>
           {action?.kind === 'rename' ? (
             <form
+              className="space-y-4"
               onSubmit={(event) => {
                 event.preventDefault();
                 if (!title.trim() || loading) return;
@@ -481,6 +515,6 @@ export function AssistantSidebar({
           )}
         </DialogContent>
       </Dialog>
-    </aside>
+    </Sidebar>
   );
 }

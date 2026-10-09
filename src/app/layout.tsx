@@ -1,11 +1,27 @@
 import type { Metadata, Viewport } from 'next';
+import localFont from 'next/font/local';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Toaster } from '@/components/ui/sonner';
 import { ThemeProvider } from '@/components/theme-provider';
+import { SITE } from '@/lib/site';
 import './globals.css';
 
-const title = 'UNUVIA — AI Workspace for Universities';
+const interfaceFont = localFont({
+  src: '../../public/fonts/inter-variable.woff2',
+  variable: '--font-interface',
+  weight: '100 900',
+  display: 'swap',
+});
+const headingFont = localFont({
+  src: '../../public/fonts/manrope-variable.woff2',
+  variable: '--font-heading-family',
+  weight: '200 800',
+  display: 'swap',
+});
+
+const title = 'UNUVIA | AI Workspace for Universities';
 const description =
-  'UNUVIA is an AI workspace for universities, helping students, faculty, researchers, and staff access AI, institutional knowledge, and intelligent workflows in one secure platform.';
+  'UNUVIA is an AI workspace for universities. Students, faculty, researchers and staff ask questions, analyze documents and draft their work with Claude.';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -15,6 +31,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.BETTER_AUTH_URL || SITE.url),
   title,
   description,
   applicationName: 'UNUVIA',
@@ -33,10 +50,15 @@ export const metadata: Metadata = {
 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${interfaceFont.variable} ${headingFont.variable}`}
+      suppressHydrationWarning
+    >
       <body>
         <ThemeProvider>
           <TooltipProvider delayDuration={350}>{children}</TooltipProvider>
+          <Toaster position="bottom-right" richColors closeButton mobileOffset={{ bottom: 88 }} />
         </ThemeProvider>
       </body>
     </html>

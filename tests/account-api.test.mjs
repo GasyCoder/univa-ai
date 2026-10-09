@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { setup, valid } from './api-runtime.mjs';
-const freeRequest = { ...valid, model: 'claude-sonnet-4-6-free' };
+const freeRequest = { ...valid, model: 'claude-haiku-5-5' };
 async function withService(options, work) {
   const s = await setup(options);
   try {
@@ -24,7 +24,7 @@ test('profile defaults and persistence are scoped to the session; account IDs an
       institution: 'UNUVIA University',
       country: 'MG',
       theme: 'dark',
-      default_model: 'claude-sonnet-4-6-free',
+      default_model: 'claude-haiku-5-5',
       default_reasoning: null,
       image: 'data:image/png;base64,aGVsbG8=',
     });
@@ -51,7 +51,7 @@ test('invalid settings, unsupported reasoning and paid models on Free are reject
       { theme: 'neon' },
       { institution: 'x'.repeat(121) },
       { default_model: 'claude-sonnet-5-5' },
-      { default_reasoning: 'high' },
+      { default_reasoning: 'ultra' },
       { image: 'javascript:alert(1)' },
       { image: 'data:image/svg+xml;base64,AAAA' },
     ])

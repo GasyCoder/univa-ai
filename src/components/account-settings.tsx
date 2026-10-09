@@ -1,15 +1,18 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import {
   ArrowLeft,
   ArrowUpRight,
-  Check,
   CreditCard,
-  Loader2,
+  Monitor,
+  Moon,
+  RefreshCw,
   Settings,
+  Sun,
   User,
   Upload,
   Trash2,
@@ -27,8 +30,15 @@ import { pruneFiles } from '@/lib/file-store';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Card } from './ui/card';
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader } from './ui/card';
+import { Progress } from './ui/progress';
+import { Separator } from './ui/separator';
+import { Skeleton } from './ui/skeleton';
+import { Spinner } from './ui/spinner';
+import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group';
 import { Badge } from './ui/badge';
+import { NativeSelect, NativeSelectOption } from './ui/native-select';
+import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
 import {
@@ -42,8 +52,6 @@ import {
 import { ThemeToggle } from './theme-provider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
-const selectClass =
-  'h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-50';
 const validTabs = ['profile', 'preferences', 'subscription'];
 export function AccountSettings({
   initial,
@@ -60,7 +68,6 @@ export function AccountSettings({
   const [image, setImage] = useState(initial.user.image);
   const [tab, setTab] = useState(validTabs.includes(initialTab || '') ? initialTab! : 'profile');
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [requests, setRequests] = useState<PaymentRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -101,12 +108,16 @@ export function AccountSettings({
     }
   }
   useEffect(() => {
+    // The delete dialog shows its own error next to the field it concerns.
+    if (error && !deleteOpen) toast.error(error, { id: 'account-error' });
+    else toast.dismiss('account-error');
+  }, [error, deleteOpen]);
+  useEffect(() => {
     setTheme(initial.profile.theme);
     void refreshHistory();
   }, []);
   async function save(kind: 'profile' | 'preferences') {
     setBusy(true);
-    setNotice('');
     setError('');
     try {
       const body =
@@ -132,7 +143,7 @@ export function AccountSettings({
       setImage(saved.user.image);
       if (kind === 'preferences') setTheme(saved.profile.theme);
       await authClient.getSession({ query: { disableCookieCache: true } });
-      setNotice(
+      toast.success(
         kind === 'profile'
           ? 'Profile saved.'
           : 'Preferences saved. They will apply the next time you open your workspace.'
@@ -188,13 +199,14 @@ export function AccountSettings({
   }
   async function submitPayment() {
     setBusy(true);
-    setNotice('');
     setError('');
     try {
       await accountRequest('/api/subscription', { method, reference });
       setReference('');
       await refreshHistory();
-      setNotice('Request received. Your plan changes only after your payment has been verified.');
+      toast.success(
+        'Request received. Your plan changes only after your payment has been verified.'
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -203,7 +215,6 @@ export function AccountSettings({
   }
   async function changePassword() {
     setBusy(true);
-    setNotice('');
     setError('');
     try {
       const result = await authClient.changePassword({
@@ -217,7 +228,7 @@ export function AccountSettings({
         );
       setPassword('');
       setNewPassword('');
-      setNotice('Password changed. Your other sessions have been signed out.');
+      toast.success('Password changed. Your other sessions have been signed out.');
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -249,7 +260,7 @@ export function AccountSettings({
   }
   return (
     <main className="account-surface min-h-dvh bg-background text-foreground">
-      <header className="mx-auto flex max-w-5xl items-center justify-between gap-3 border-b px-4 py-4 sm:px-8">
+      <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 border-b px-4 py-4 sm:px-8">
         <Link href="/assistant" className="inline-flex min-h-11 items-center gap-2 text-sm">
           <ArrowLeft size={16} /> Back to workspace
         </Link>
@@ -265,17 +276,19 @@ export function AccountSettings({
           }}
         />
       </header>
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-8 sm:py-12">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8 sm:py-12">
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="mb-2 text-xs tracking-widest text-muted-foreground">UNUVIA ACCOUNT</p>
-            <h1 className="text-3xl font-semibold tracking-tight">Your account</h1>
+            <p className="mb-2 text-xs font-medium tracking-wider text-muted-foreground">
+              UNUVIA ACCOUNT
+            </p>
+            <h1 className="type-page-title">Your account</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Your profile, workspace preferences and subscription.
             </p>
           </div>
           {data.isAdmin && (
-            <Button variant="outline" asChild>
+            <Button className="min-h-11" variant="outline" asChild>
               <Link href="/admin/subscriptions">
                 Manage subscriptions <ArrowUpRight size={16} />
               </Link>
@@ -286,488 +299,600 @@ export function AccountSettings({
           value={tab}
           onValueChange={(value) => {
             setTab(value);
-            setNotice('');
             setError('');
             window.history.replaceState(null, '', `/account?tab=${value}`);
           }}
+          className="gap-6"
         >
-          <TabsList className="mb-6 grid h-auto w-full grid-cols-3 sm:w-fit">
-            <TabsTrigger className="min-h-11 px-3" value="profile">
+          <TabsList className="grid w-full grid-cols-3 group-data-[orientation=horizontal]/tabs:h-auto sm:w-fit">
+            <TabsTrigger className="min-h-11 px-4" value="profile">
               <User />
               Profile
             </TabsTrigger>
-            <TabsTrigger className="min-h-11 px-3" value="preferences">
+            <TabsTrigger className="min-h-11 px-4" value="preferences">
               <Settings />
               Settings
             </TabsTrigger>
-            <TabsTrigger className="min-h-11 px-3" value="subscription">
+            <TabsTrigger className="min-h-11 px-4" value="subscription">
               <CreditCard />
               Plan
             </TabsTrigger>
           </TabsList>
-          {notice && (
-            <Alert className="mb-4">
-              <Check size={16} />
-              <AlertDescription role="status">{notice}</AlertDescription>
-            </Alert>
-          )}
-          {error && !deleteOpen && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription role="alert">{error}</AlertDescription>
-            </Alert>
-          )}
           <TabsContent value="profile">
-            <Card className="gap-6 p-5 sm:p-8">
-              <div>
-                <h2 className="text-xl font-semibold">Profile</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Make this workspace yours.</p>
-              </div>
+            <Card>
+              <CardHeader>
+                <h2 className="type-card-title">Profile</h2>
+                <CardDescription>Make this workspace yours.</CardDescription>
+              </CardHeader>
               <form
-                className="space-y-5"
+                className="flex flex-col gap-6"
                 onSubmit={(e) => {
                   e.preventDefault();
                   void save('profile');
                 }}
               >
-                <fieldset disabled={busy || photoLoading} className="space-y-5">
-                  <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-xl font-semibold text-primary">
-                      {image ? (
-                        <img className="size-full object-cover" src={image} alt="Your profile" />
-                      ) : (
-                        name.slice(0, 1).toUpperCase()
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        type="button"
-                        onClick={() => photoInput.current?.click()}
-                      >
-                        <Upload size={16} />
-                        {photoLoading ? 'Opening…' : 'Change photo'}
-                      </Button>
-                      {image && (
-                        <Button variant="ghost" type="button" onClick={() => setImage(null)}>
-                          Remove
-                        </Button>
-                      )}
-                    </div>
-                    <Input
-                      ref={photoInput}
-                      className="sr-only"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      aria-label="Profile photo"
-                      onChange={(e) => void uploadPhoto(e.target.files?.[0])}
-                    />
-                  </div>
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="profile-name">Full name</Label>
+                <CardContent>
+                  <fieldset disabled={busy || photoLoading} className="grid gap-6">
+                    <div className="flex flex-wrap items-center gap-4">
+                      <Avatar className="size-16 text-xl">
+                        <AvatarImage src={image || undefined} alt="Your profile" />
+                        <AvatarFallback>{name.slice(0, 1).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="grid gap-2">
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            className="min-h-11"
+                            variant="outline"
+                            type="button"
+                            onClick={() => photoInput.current?.click()}
+                          >
+                            {photoLoading ? <Spinner /> : <Upload />}
+                            {photoLoading ? 'Opening…' : 'Change photo'}
+                          </Button>
+                          {image && (
+                            <Button
+                              className="min-h-11"
+                              variant="ghost"
+                              type="button"
+                              onClick={() => setImage(null)}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          JPG, PNG or WebP, up to 5 MB.
+                        </p>
+                      </div>
                       <Input
-                        id="profile-name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        maxLength={100}
-                        required
-                        autoComplete="name"
+                        ref={photoInput}
+                        className="hidden"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        aria-label="Profile photo"
+                        onChange={(e) => void uploadPhoto(e.target.files?.[0])}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="profile-email">Email</Label>
-                      <Input id="profile-email" value={data.user.email} readOnly />
-                      <p className="text-xs text-muted-foreground">Your sign-in email.</p>
+                    <Separator />
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      <div className="grid content-start gap-2">
+                        <Label htmlFor="profile-name">Full name</Label>
+                        <Input
+                          className="h-11"
+                          id="profile-name"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          maxLength={100}
+                          required
+                          autoComplete="name"
+                        />
+                      </div>
+                      <div className="grid content-start gap-2">
+                        <Label htmlFor="profile-email">Email</Label>
+                        <Input
+                          className="h-11"
+                          id="profile-email"
+                          value={data.user.email}
+                          readOnly
+                        />
+                        <p className="text-xs text-muted-foreground">Your sign-in email.</p>
+                      </div>
+                      <div className="grid content-start gap-2">
+                        <Label htmlFor="profile-role">Your role</Label>
+                        <Select
+                          value={profile.role}
+                          onValueChange={(value) =>
+                            setProfile((p) => ({ ...p, role: value as typeof p.role }))
+                          }
+                        >
+                          <SelectTrigger
+                            id="profile-role"
+                            className="w-full data-[size=default]:h-11"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ROLES.map((item) => (
+                              <SelectItem key={item.id} value={item.id}>
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid content-start gap-2">
+                        <Label htmlFor="profile-country">Country</Label>
+                        <NativeSelect
+                          id="profile-country"
+                          className="h-11 w-full"
+                          value={profile.country}
+                          onChange={(e) => setProfile((p) => ({ ...p, country: e.target.value }))}
+                        >
+                          <NativeSelectOption value="">Choose your country</NativeSelectOption>
+                          {countries.map((item) => (
+                            <NativeSelectOption key={item.code} value={item.code}>
+                              {item.label}
+                            </NativeSelectOption>
+                          ))}
+                        </NativeSelect>
+                        <p className="text-xs text-muted-foreground">
+                          Used to show your subscription price.
+                          {!profile.country && data.countrySuggestion && (
+                            <Button
+                              type="button"
+                              variant="link"
+                              className="ml-1 h-auto p-0 text-xs"
+                              onClick={() =>
+                                setProfile((p) => ({ ...p, country: data.countrySuggestion }))
+                              }
+                            >
+                              Use {displayNames.of(data.countrySuggestion)}
+                            </Button>
+                          )}
+                        </p>
+                      </div>
+                      <div className="grid content-start gap-2 sm:col-span-2">
+                        <Label htmlFor="profile-institution">
+                          University or institution{' '}
+                          <span className="font-normal text-muted-foreground">(optional)</span>
+                        </Label>
+                        <Input
+                          className="h-11"
+                          id="profile-institution"
+                          value={profile.institution}
+                          onChange={(e) =>
+                            setProfile((p) => ({ ...p, institution: e.target.value }))
+                          }
+                          maxLength={120}
+                          autoComplete="organization"
+                          placeholder="Your institution"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="profile-role">Your role</Label>
-                      <Select
-                        value={profile.role}
+                  </fieldset>
+                </CardContent>
+                <CardFooter className="border-t">
+                  <Button className="min-h-11" type="submit" disabled={busy || photoLoading}>
+                    {busy && <Spinner />}Save profile
+                  </Button>
+                </CardFooter>
+              </form>
+            </Card>
+          </TabsContent>
+          <TabsContent value="preferences" className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <h2 className="type-card-title">Workspace settings</h2>
+                <CardDescription>
+                  Defaults for your workspace, saved to your account.
+                </CardDescription>
+              </CardHeader>
+              <form
+                className="flex flex-col gap-6"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void save('preferences');
+                }}
+              >
+                <CardContent>
+                  <fieldset disabled={busy} className="grid gap-6 sm:grid-cols-2">
+                    <div className="grid content-start gap-2 sm:col-span-2">
+                      <Label id="account-theme-label">Appearance</Label>
+                      <ToggleGroup
+                        type="single"
+                        variant="outline"
+                        aria-labelledby="account-theme-label"
+                        className="w-full sm:w-fit"
+                        value={profile.theme}
                         onValueChange={(value) =>
-                          setProfile((p) => ({ ...p, role: value as typeof p.role }))
+                          value && setProfile((p) => ({ ...p, theme: value as typeof p.theme }))
                         }
                       >
-                        <SelectTrigger id="profile-role" className="w-full">
-                          <SelectValue />
+                        <ToggleGroupItem className="min-h-11 flex-1 px-4" value="light">
+                          <Sun />
+                          Light
+                        </ToggleGroupItem>
+                        <ToggleGroupItem className="min-h-11 flex-1 px-4" value="dark">
+                          <Moon />
+                          Dark
+                        </ToggleGroupItem>
+                        <ToggleGroupItem className="min-h-11 flex-1 px-4" value="system">
+                          <Monitor />
+                          System
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+                    <div className="grid content-start gap-2">
+                      <Label htmlFor="account-model">Default model</Label>
+                      <Select
+                        disabled={!allowedModels.length}
+                        value={
+                          allowedIds.includes(profile.default_model)
+                            ? profile.default_model
+                            : allowedIds[0] || ''
+                        }
+                        onValueChange={(value) =>
+                          setProfile((p) => ({
+                            ...p,
+                            default_model: value,
+                            default_reasoning: null,
+                          }))
+                        }
+                      >
+                        <SelectTrigger
+                          id="account-model"
+                          className="w-full data-[size=default]:h-11"
+                        >
+                          <SelectValue placeholder="No models available" />
                         </SelectTrigger>
                         <SelectContent>
-                          {ROLES.map((item) => (
+                          {allowedModels.map((item) => (
                             <SelectItem key={item.id} value={item.id}>
                               {item.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="profile-country">Country</Label>
-                      <select
-                        id="profile-country"
-                        className={selectClass}
-                        value={profile.country}
-                        onChange={(e) => setProfile((p) => ({ ...p, country: e.target.value }))}
-                      >
-                        <option value="">Choose your country</option>
-                        {countries.map((item) => (
-                          <option key={item.code} value={item.code}>
-                            {item.label}
-                          </option>
-                        ))}
-                      </select>
-                      {!profile.country && data.countrySuggestion && (
-                        <Button
-                          type="button"
-                          variant="link"
-                          className="h-auto px-0 text-xs"
-                          onClick={() =>
-                            setProfile((p) => ({ ...p, country: data.countrySuggestion }))
-                          }
-                        >
-                          Use {displayNames.of(data.countrySuggestion)}
-                        </Button>
-                      )}
                       <p className="text-xs text-muted-foreground">
-                        Used to show your subscription price.
+                        {MODELS.find((item) => item.id === profile.default_model)?.description}
+                        {data.plan === 'free' && ' Pro includes every Claude model.'}
                       </p>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="profile-institution">
-                      University or institution{' '}
-                      <span className="font-normal text-muted-foreground">(optional)</span>
-                    </Label>
-                    <Input
-                      id="profile-institution"
-                      value={profile.institution}
-                      onChange={(e) => setProfile((p) => ({ ...p, institution: e.target.value }))}
-                      maxLength={120}
-                      autoComplete="organization"
-                      placeholder="Your institution"
-                    />
-                  </div>
-                  <Button type="submit">
-                    {busy && <Loader2 className="animate-spin" />}Save profile
+                    {!!Object.keys(reasoningLevelsFor(profile.default_model)).length && (
+                      <div className="grid content-start gap-2">
+                        <Label htmlFor="account-reasoning">Default reasoning</Label>
+                        <Select
+                          value={profile.default_reasoning || 'default'}
+                          onValueChange={(value) =>
+                            setProfile((p) => ({
+                              ...p,
+                              default_reasoning: (value === 'default'
+                                ? null
+                                : value) as typeof p.default_reasoning,
+                            }))
+                          }
+                        >
+                          <SelectTrigger
+                            id="account-reasoning"
+                            className="w-full data-[size=default]:h-11"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="default">Model default</SelectItem>
+                            {REASONING_LEVELS.filter(
+                              (item) => item.id in reasoningLevelsFor(profile.default_model)
+                            ).map((item) => (
+                              <SelectItem key={item.id} value={item.id}>
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          {REASONING_LEVELS.find((item) => item.id === profile.default_reasoning)
+                            ?.description ?? 'Let the model decide how long to think.'}
+                        </p>
+                      </div>
+                    )}
+                  </fieldset>
+                </CardContent>
+                <CardFooter className="border-t">
+                  <Button
+                    className="min-h-11"
+                    type="submit"
+                    disabled={busy || !allowedModels.length}
+                  >
+                    {busy && <Spinner />}Save settings
                   </Button>
-                </fieldset>
-              </form>
-            </Card>
-          </TabsContent>
-          <TabsContent value="preferences" className="space-y-6">
-            <Card className="p-5 sm:p-8">
-              <div>
-                <h2 className="text-xl font-semibold">Workspace settings</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  These defaults are saved to your account.
-                </p>
-              </div>
-              <form
-                className="space-y-5"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void save('preferences');
-                }}
-              >
-                <fieldset disabled={busy} className="grid gap-5 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="account-theme">Appearance</Label>
-                    <select
-                      id="account-theme"
-                      className={selectClass}
-                      value={profile.theme}
-                      onChange={(e) =>
-                        setProfile((p) => ({ ...p, theme: e.target.value as typeof p.theme }))
-                      }
-                    >
-                      <option value="system">Follow system</option>
-                      <option value="light">Light</option>
-                      <option value="dark">Dark</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="account-model">Default model</Label>
-                    <select
-                      id="account-model"
-                      className={selectClass}
-                      disabled={!allowedModels.length}
-                      value={
-                        allowedIds.includes(profile.default_model)
-                          ? profile.default_model
-                          : allowedIds[0] || ''
-                      }
-                      onChange={(e) =>
-                        setProfile((p) => ({
-                          ...p,
-                          default_model: e.target.value,
-                          default_reasoning: null,
-                        }))
-                      }
-                    >
-                      {!allowedModels.length && <option value="">No connected models</option>}
-                      {allowedModels.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {!!Object.keys(reasoningLevelsFor(profile.default_model)).length && (
-                    <div className="space-y-2">
-                      <Label htmlFor="account-reasoning">Default reasoning</Label>
-                      <select
-                        id="account-reasoning"
-                        className={selectClass}
-                        value={profile.default_reasoning || ''}
-                        onChange={(e) =>
-                          setProfile((p) => ({
-                            ...p,
-                            default_reasoning: (e.target.value ||
-                              null) as typeof p.default_reasoning,
-                          }))
-                        }
-                      >
-                        <option value="">Model default</option>
-                        {REASONING_LEVELS.filter(
-                          (item) => item.id in reasoningLevelsFor(profile.default_model)
-                        ).map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div className="sm:col-span-2">
-                    <Button type="submit" disabled={!allowedModels.length}>
-                      Save settings
-                    </Button>
-                  </div>
-                </fieldset>
+                </CardFooter>
               </form>
             </Card>
             {data.hasPassword && (
-              <Card className="p-5 sm:p-8">
-                <h2 className="text-xl font-semibold">Change password</h2>
+              <Card>
+                <CardHeader>
+                  <h2 className="type-card-title">Change password</h2>
+                  <CardDescription>
+                    Changing your password signs out your other sessions.
+                  </CardDescription>
+                </CardHeader>
                 <form
-                  className="space-y-5"
+                  className="flex flex-col gap-6"
                   onSubmit={(e) => {
                     e.preventDefault();
                     void changePassword();
                   }}
                 >
-                  <fieldset disabled={busy} className="grid gap-5 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="current-password">Current password</Label>
-                      <Input
-                        id="current-password"
-                        type="password"
-                        autoComplete="current-password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="new-password">New password</Label>
-                      <Input
-                        id="new-password"
-                        type="password"
-                        autoComplete="new-password"
-                        minLength={8}
-                        maxLength={128}
-                        required
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <Button variant="outline" type="submit">
-                        Change password
-                      </Button>
-                    </div>
-                  </fieldset>
+                  <CardContent>
+                    <fieldset disabled={busy} className="grid gap-6 sm:grid-cols-2">
+                      <div className="grid content-start gap-2">
+                        <Label htmlFor="current-password">Current password</Label>
+                        <Input
+                          className="h-11"
+                          id="current-password"
+                          type="password"
+                          autoComplete="current-password"
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                        />
+                      </div>
+                      <div className="grid content-start gap-2">
+                        <Label htmlFor="new-password">New password</Label>
+                        <Input
+                          className="h-11"
+                          id="new-password"
+                          type="password"
+                          autoComplete="new-password"
+                          minLength={8}
+                          maxLength={128}
+                          required
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">8 to 128 characters.</p>
+                      </div>
+                    </fieldset>
+                  </CardContent>
+                  <CardFooter className="border-t">
+                    <Button className="min-h-11" variant="outline" type="submit" disabled={busy}>
+                      Change password
+                    </Button>
+                  </CardFooter>
                 </form>
               </Card>
             )}
-            <Card className="border-destructive/30 p-5 sm:p-8">
-              <div>
-                <h2 className="text-xl font-semibold">Delete account</h2>
-                <p className="mt-2 text-sm text-muted-foreground">
+            <Card className="border-destructive/30">
+              <CardHeader>
+                <h2 className="type-card-title">Delete account</h2>
+                <CardDescription>
                   Permanently remove your account, profile and subscription records. Local
                   conversations and files on this device will also be cleared.
-                </p>
-              </div>
-              <Button
-                variant="destructive"
-                className="w-fit"
-                onClick={() => {
-                  setError('');
-                  setDeleteConfirmation('');
-                  setDeletePassword('');
-                  setDeleteOpen(true);
-                }}
-              >
-                <Trash2 />
-                Delete account
-              </Button>
+                </CardDescription>
+              </CardHeader>
+              <CardFooter>
+                <Button
+                  variant="destructive"
+                  className="min-h-11"
+                  onClick={() => {
+                    setError('');
+                    setDeleteConfirmation('');
+                    setDeletePassword('');
+                    setDeleteOpen(true);
+                  }}
+                >
+                  <Trash2 />
+                  Delete account
+                </Button>
+              </CardFooter>
             </Card>
           </TabsContent>
-          <TabsContent value="subscription" className="space-y-6">
-            <Card className="p-5 sm:p-8">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold">
-                    Your plan <Badge className="ml-2">{PLANS[data.plan].label}</Badge>
-                  </h2>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {data.plan === 'pro' && data.subscription
-                      ? `Active until ${displayDate(data.subscription.current_period_end)} (UTC).`
-                      : data.subscription?.status === 'expired'
-                        ? 'Your Pro period has ended. You are now on Free.'
-                        : data.subscription?.status === 'cancelled'
-                          ? 'Your Pro subscription was cancelled. You are now on Free.'
-                          : 'Your personal workspace, with no subscription required.'}
+          <TabsContent value="subscription" className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <h2 className="type-card-title">
+                  Your plan <Badge className="ml-2 align-middle">{PLANS[data.plan].label}</Badge>
+                </h2>
+                <CardDescription>
+                  {data.plan === 'pro' && data.subscription
+                    ? `Active until ${displayDate(data.subscription.current_period_end)} (UTC).`
+                    : data.subscription?.status === 'expired'
+                      ? 'Your Pro period has ended. You are now on Free.'
+                      : data.subscription?.status === 'cancelled'
+                        ? 'Your Pro subscription was cancelled. You are now on Free.'
+                        : 'Your personal workspace, with no subscription required.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-6">
+                <div className="grid gap-2">
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span id="usage-label" className="font-medium">
+                      {data.usage.days === 1 ? 'Daily' : `${data.usage.days}-day`} usage allowance
+                    </span>
+                    <span className="text-muted-foreground">{data.usage.percent}% used</span>
+                  </div>
+                  <Progress value={data.usage.percent} aria-labelledby="usage-label" />
+                  <p className="text-xs text-muted-foreground">
+                    Larger models and long documents use the allowance faster. It frees up again
+                    over time.
                   </p>
                 </div>
-                <span className="text-sm text-muted-foreground">
-                  {PLANS[data.plan].requestsPerMinute} requests / minute
-                </span>
-              </div>
-              <p className="text-sm">
-                {data.plan === 'pro'
-                  ? 'Access to all models supported by the connected service.'
-                  : 'Claude Sonnet 4.6 Free is included.'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                The connected service currently provides {allowedModels.length}{' '}
-                {allowedModels.length === 1 ? 'model' : 'models'} for your account. Model
-                availability can change independently of your UNUVIA plan.
-              </p>
+                <Separator />
+                <dl className="grid gap-4 text-sm sm:grid-cols-2">
+                  <div className="grid gap-1">
+                    <dt className="text-muted-foreground">Models</dt>
+                    <dd>
+                      {allowedModels.map((item) => item.label).join(', ') || 'None available'}
+                    </dd>
+                  </div>
+                  <div className="grid gap-1">
+                    <dt className="text-muted-foreground">Rate</dt>
+                    <dd>{PLANS[data.plan].requestsPerMinute} requests per minute</dd>
+                  </div>
+                </dl>
+              </CardContent>
             </Card>
-            <Card className="p-5 sm:p-8">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-semibold">
-                    {data.plan === 'pro' ? 'Renew Pro' : 'Upgrade to Pro'}
-                  </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    30 days of access, activated after payment review.
-                  </p>
-                </div>
-                <p className="text-2xl font-semibold">
+            <Card>
+              <CardHeader>
+                <h2 className="type-card-title">
+                  {data.plan === 'pro' ? 'Renew Pro' : 'Upgrade to Pro'}
+                </h2>
+                <CardDescription>
+                  30 days of access to every Claude model, activated after payment review. Your
+                  price follows your saved country.{' '}
+                  <Button variant="link" className="h-auto p-0" onClick={() => setTab('profile')}>
+                    Update your profile
+                  </Button>
+                </CardDescription>
+                <CardAction className="text-2xl font-semibold">
                   {data.price.formatted}
                   <span className="ml-1 text-sm font-normal text-muted-foreground">/ 30 days</span>
-                </p>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Your price follows your saved country.{' '}
-                <Button variant="link" className="h-auto p-0" onClick={() => setTab('profile')}>
-                  Update your profile
-                </Button>
-              </p>
+                </CardAction>
+              </CardHeader>
               {!data.paymentMethods.length ? (
-                <Alert>
-                  <AlertDescription>
-                    Payments are not available yet. Please contact support before sending any money.
-                  </AlertDescription>
-                </Alert>
+                <CardContent>
+                  <Alert>
+                    <AlertDescription>
+                      Payments are not available yet. Please contact support before sending any
+                      money.
+                    </AlertDescription>
+                  </Alert>
+                </CardContent>
               ) : pending ? (
-                <Alert>
-                  <AlertDescription>
-                    Your payment request is awaiting review. You can follow its status below.
-                  </AlertDescription>
-                </Alert>
+                <CardContent>
+                  <Alert>
+                    <AlertDescription>
+                      Your payment request is awaiting review. You can follow its status below.
+                    </AlertDescription>
+                  </Alert>
+                </CardContent>
               ) : (
                 <form
-                  className="space-y-5"
+                  className="flex flex-col gap-6"
                   onSubmit={(e) => {
                     e.preventDefault();
                     void submitPayment();
                   }}
                 >
-                  <fieldset disabled={busy || historyLoading} className="space-y-5">
-                    <div className="space-y-2">
-                      <Label htmlFor="payment-method">Payment method</Label>
-                      <select
-                        id="payment-method"
-                        className={selectClass}
-                        value={method}
-                        onChange={(e) => setMethod(e.target.value as typeof method)}
-                      >
-                        {data.paymentMethods.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="rounded-lg border bg-muted/40 p-4">
-                      <h3 className="mb-2 text-sm font-semibold">1. Make your payment</h3>
-                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                        {instructions}
-                      </p>
-                      <p className="mt-3 text-xs text-muted-foreground">
-                        Pay {data.price.formatted} using these instructions. Do not enter card
-                        numbers or security codes here.
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="payment-reference">2. Enter your transaction reference</Label>
-                      <Input
-                        id="payment-reference"
-                        value={reference}
-                        onChange={(e) => setReference(e.target.value)}
-                        minLength={3}
-                        maxLength={120}
-                        required
-                        placeholder="Reference from your payment receipt"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Submitting a reference does not charge you or activate Pro immediately.
-                      </p>
-                    </div>
-                    <Button type="submit" disabled={busy || !reference.trim() || historyLoading}>
-                      Submit for review
+                  <CardContent>
+                    <fieldset disabled={busy || historyLoading} className="grid gap-6">
+                      <div className="grid gap-2">
+                        <Label htmlFor="payment-method">Payment method</Label>
+                        <Select
+                          value={method}
+                          onValueChange={(value) => setMethod(value as typeof method)}
+                        >
+                          <SelectTrigger
+                            id="payment-method"
+                            className="w-full data-[size=default]:h-11 sm:w-72"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {data.paymentMethods.map((item) => (
+                              <SelectItem key={item.id} value={item.id}>
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="rounded-lg border bg-muted/40 p-4">
+                        <h3 className="mb-2 text-sm font-semibold">1. Make your payment</h3>
+                        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                          {instructions}
+                        </p>
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          Pay {data.price.formatted} using these instructions. Do not enter card
+                          numbers or security codes here.
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="payment-reference">
+                          2. Enter your transaction reference
+                        </Label>
+                        <Input
+                          className="h-11"
+                          id="payment-reference"
+                          value={reference}
+                          onChange={(e) => setReference(e.target.value)}
+                          minLength={3}
+                          maxLength={120}
+                          required
+                          placeholder="Reference from your payment receipt"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Submitting a reference does not charge you or activate Pro immediately.
+                        </p>
+                      </div>
+                    </fieldset>
+                  </CardContent>
+                  <CardFooter className="border-t">
+                    <Button
+                      className="min-h-11"
+                      type="submit"
+                      disabled={busy || !reference.trim() || historyLoading}
+                    >
+                      {busy && <Spinner />}Submit for review
                     </Button>
-                  </fieldset>
+                  </CardFooter>
                 </form>
               )}
             </Card>
-            <Card className="p-5 sm:p-8">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-xl font-semibold">Payment history</h2>
-                <Button
-                  variant="ghost"
-                  disabled={historyLoading}
-                  onClick={() => void refreshHistory()}
-                >
-                  Refresh
-                </Button>
-              </div>
-              {historyLoading ? (
-                <p role="status" className="text-sm text-muted-foreground">
-                  Loading your requests…
-                </p>
-              ) : !requests.length ? (
-                <p className="text-sm text-muted-foreground">No payment requests yet.</p>
-              ) : (
-                <ul className="divide-y">
-                  {requests.map((item) => (
-                    <li key={item.id} className="space-y-2 py-4 first:pt-0 last:pb-0">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <strong className="text-sm">
-                          {paymentAmount(item)} ·{' '}
-                          {item.method === 'card' ? 'Card payment' : 'Mobile Money'}
-                        </strong>
-                        <Badge variant="outline">{item.status}</Badge>
-                      </div>
-                      <p className="break-all text-sm text-muted-foreground">
-                        {item.reference} · {displayDate(item.created_at)}
-                      </p>
-                      {item.note && <p className="text-sm">Review note: {item.note}</p>}
-                    </li>
-                  ))}
-                </ul>
-              )}
+            <Card>
+              <CardHeader>
+                <h2 className="type-card-title">Payment history</h2>
+                <CardDescription>Your requests and their review status.</CardDescription>
+                <CardAction>
+                  <Button
+                    className="min-h-11"
+                    variant="ghost"
+                    disabled={historyLoading}
+                    onClick={() => void refreshHistory()}
+                  >
+                    {historyLoading ? <Spinner /> : <RefreshCw />}
+                    Refresh
+                  </Button>
+                </CardAction>
+              </CardHeader>
+              <CardContent>
+                {historyLoading ? (
+                  <div role="status" aria-label="Loading your requests" className="grid gap-3">
+                    <Skeleton className="h-5 w-2/3" />
+                    <Skeleton className="h-5 w-1/2" />
+                  </div>
+                ) : !requests.length ? (
+                  <p className="text-sm text-muted-foreground">No payment requests yet.</p>
+                ) : (
+                  <ul className="divide-y">
+                    {requests.map((item) => (
+                      <li key={item.id} className="grid gap-2 py-4 first:pt-0 last:pb-0">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <strong className="text-sm">
+                            {paymentAmount(item)} ·{' '}
+                            {item.method === 'card' ? 'Card payment' : 'Mobile Money'}
+                          </strong>
+                          <Badge
+                            variant={
+                              item.status === 'approved'
+                                ? 'default'
+                                : item.status === 'rejected'
+                                  ? 'destructive'
+                                  : 'outline'
+                            }
+                          >
+                            {item.status}
+                          </Badge>
+                        </div>
+                        <p className="break-all text-sm text-muted-foreground">
+                          {item.reference} · {displayDate(item.created_at)}
+                        </p>
+                        {item.note && <p className="text-sm">Review note: {item.note}</p>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
@@ -782,7 +907,7 @@ export function AccountSettings({
         }}
       >
         <DialogContent
-          className="account-dialog"
+          className="account-dialog max-h-[calc(100dvh-2rem)] overflow-y-auto"
           onOpenAutoFocus={(e) => {
             e.preventDefault();
             cancelDelete.current?.focus();
@@ -805,6 +930,7 @@ export function AccountSettings({
             <div className="space-y-2">
               <Label htmlFor="delete-confirmation">Type DELETE to confirm</Label>
               <Input
+                className="h-11"
                 id="delete-confirmation"
                 value={deleteConfirmation}
                 onChange={(e) => setDeleteConfirmation(e.target.value)}
@@ -815,6 +941,7 @@ export function AccountSettings({
               <div className="space-y-2">
                 <Label htmlFor="delete-password">Current password</Label>
                 <Input
+                  className="h-11"
                   id="delete-password"
                   type="password"
                   autoComplete="current-password"
@@ -832,6 +959,7 @@ export function AccountSettings({
             )}
             <DialogFooter>
               <Button
+                className="min-h-11"
                 ref={cancelDelete}
                 variant="outline"
                 type="button"
@@ -841,6 +969,7 @@ export function AccountSettings({
                 Keep account
               </Button>
               <Button
+                className="min-h-11"
                 type="submit"
                 variant="destructive"
                 disabled={

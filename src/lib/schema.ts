@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS profile (
   institution VARCHAR(120) NOT NULL DEFAULT '',
   country VARCHAR(2) NOT NULL DEFAULT '',
   theme TEXT NOT NULL DEFAULT 'system' CHECK (theme IN ('light','dark','system')),
-  default_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-6-free',
+  default_model TEXT NOT NULL DEFAULT 'claude-haiku-5-5',
   default_reasoning TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -46,4 +46,19 @@ CREATE TABLE IF NOT EXISTS assistant_rate_limits (
   window_start BIGINT NOT NULL,
   count INTEGER NOT NULL CHECK (count > 0)
 );
+CREATE TABLE IF NOT EXISTS assistant_usage (
+  user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+  day DATE NOT NULL,
+  model TEXT NOT NULL,
+  requests INTEGER NOT NULL DEFAULT 0,
+  input_tokens BIGINT NOT NULL DEFAULT 0,
+  output_tokens BIGINT NOT NULL DEFAULT 0,
+  cache_read_tokens BIGINT NOT NULL DEFAULT 0,
+  cache_write_tokens BIGINT NOT NULL DEFAULT 0,
+  cost_micro_usd BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, day, model)
+);
+ALTER TABLE profile ALTER COLUMN default_model SET DEFAULT 'claude-haiku-5-5';
+UPDATE profile SET default_model='claude-haiku-5-5', default_reasoning=NULL
+  WHERE default_model NOT IN ('claude-sonnet-5-5','claude-opus-5-5','claude-fable-5-1','claude-haiku-5-5');
 `;

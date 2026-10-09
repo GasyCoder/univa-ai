@@ -31,7 +31,10 @@ async function audit(page: Page) {
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
     .analyze();
   expect(
-    results.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) }))
+    results.violations.map((v) => ({
+      id: v.id,
+      nodes: v.nodes.map((n) => ({ target: n.target, summary: n.failureSummary })),
+    }))
   ).toEqual([]);
 }
 
@@ -58,11 +61,12 @@ for (const width of [320, 1440]) {
     await page.getByRole('option', { name: 'Researcher', exact: true }).click();
     await page.getByLabel('Country', { exact: true }).selectOption('MG');
     await page.getByRole('button', { name: 'Save profile', exact: true }).click();
-    await expect(page.getByRole('status')).toContainText('Profile saved.');
+    await expect(page.locator('[data-sonner-toast]')).toContainText('Profile saved.');
     await page.getByRole('tab', { name: 'Settings', exact: true }).click();
-    await page.getByLabel('Appearance').selectOption('dark');
+    await page.getByRole('radio', { name: 'Dark', exact: true }).click();
     await page.getByRole('button', { name: 'Save settings', exact: true }).click();
-    await expect(page.getByRole('status')).toContainText('Preferences saved.');
+    await expect(page.locator('[data-sonner-toast]').first()).toContainText('Preferences saved.');
+    await expect(page.getByRole('button', { name: 'Save settings', exact: true })).toBeEnabled();
     await expect(page.locator('html')).toHaveClass(/dark/);
     await audit(page);
     await request.post('/api/auth/sign-out', { data: {} });
@@ -90,10 +94,12 @@ for (const width of [320, 1440]) {
     );
     await page.goto('/assistant');
     await expect(page.locator('[data-ready=true]')).toBeVisible();
-    await expect(page.locator('#chat-role')).toContainText('Researcher');
-    await expect(page.locator('#chat-model')).toContainText('Claude Sonnet 4.6 Free');
+    await expect(
+      page.getByRole('combobox', { name: 'My workspace role', exact: true })
+    ).toContainText('Researcher');
+    await expect(page.locator('#chat-model:visible')).toContainText('Claude Haiku 5.5');
     await expect(page.locator('html')).toHaveClass(/dark/);
-    await page.locator('#chat-model').click();
+    await page.locator('#chat-model:visible').click();
     await expect(page.getByRole('menuitemradio', { name: /^Claude Opus 5\.5/ })).toBeDisabled();
     await request.dispose();
   });
@@ -111,10 +117,11 @@ test('manual subscription request, administrator approval and Pro model access w
   const account = await register(userRequest, 'Payment Tester');
   await page.context().addCookies(account.cookies);
   await page.goto('/account?tab=subscription');
-  await page.getByLabel('Payment method').selectOption('mobile_money');
+  await page.getByLabel('Payment method').click();
+  await page.getByRole('option', { name: 'Mobile Money', exact: true }).click();
   await page.getByLabel('2. Enter your transaction reference').fill('E2E-' + crypto.randomUUID());
   await page.getByRole('button', { name: 'Submit for review', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('Request received');
+  await expect(page.locator('[data-sonner-toast]')).toContainText('Request received');
   await expect(page.getByText('pending', { exact: true })).toBeVisible();
   expect((await (await userRequest.get('/api/account')).json()).plan).toBe('free');
   expect((await userRequest.get('/api/admin/subscriptions')).status()).toBe(404);
@@ -152,9 +159,9 @@ test('manual subscription request, administrator approval and Pro model access w
   await expect(page.getByText('approved', { exact: true })).toBeVisible();
   await page.goto('/assistant');
   await expect(page.locator('[data-ready=true]')).toBeVisible();
-  await page.locator('#chat-model').click();
+  await page.locator('#chat-model:visible').click();
   await page.getByRole('menuitemradio', { name: /^Claude Opus 5\.5/ }).click();
-  await expect(page.locator('#chat-model')).toContainText('Claude Opus 5.5');
+  await expect(page.locator('#chat-model:visible')).toContainText('Claude Opus 5.5');
   await adminContext.close();
   await adminRequest.dispose();
   await userRequest.dispose();
@@ -174,7 +181,7 @@ test('password change and guarded account deletion use Better Auth and clear ser
   await page.getByLabel('Current password', { exact: true }).fill(password);
   await page.getByLabel('New password', { exact: true }).fill('NewPassword123!');
   await page.getByRole('button', { name: 'Change password', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('Password changed');
+  await expect(page.locator('[data-sonner-toast]')).toContainText('Password changed');
   await page.getByRole('button', { name: 'Delete account', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('button', { name: 'Keep account' })).toBeFocused();

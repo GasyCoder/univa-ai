@@ -32,6 +32,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Kbd } from '@/components/ui/kbd';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -226,14 +228,18 @@ export function ChatComposer({
         className="model-option"
         disabled={!available}
       >
-        <span className="model-option-copy">
-          <span className="model-option-heading">
+        <span className="model-option-copy flex min-w-0 flex-1 flex-col gap-1">
+          <span className="model-option-heading flex flex-wrap items-center gap-2">
             <strong>{item.label}</strong>
             <Badge variant="secondary">{available ? item.badge : 'Not in your plan'}</Badge>
           </span>
-          <span className="model-option-description">{item.description}</span>
+          <span className="model-option-description text-xs text-muted-foreground">
+            {item.description}
+          </span>
         </span>
-        {item.id === model && <Check className="model-option-check" aria-hidden="true" />}
+        {item.id === model && (
+          <Check className="model-option-check size-4 shrink-0" aria-hidden="true" />
+        )}
       </DropdownMenuRadioItem>
     );
   }
@@ -257,7 +263,7 @@ export function ChatComposer({
           </div>
         </div>
       )}
-      <Card className={`chat-composer ${dragging ? 'is-dragging' : ''}`}>
+      <Card className={`chat-composer gap-0 p-2 ${dragging ? 'is-dragging' : ''}`}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -289,9 +295,9 @@ export function ChatComposer({
             </div>
           )}
           <div className="composer-attach">
-            <input
+            <Input
               ref={fileInputRef}
-              className="sr-only"
+              className="hidden"
               type="file"
               accept={DOCUMENT_ACCEPT}
               aria-label="Choose a document or image"
@@ -308,7 +314,7 @@ export function ChatComposer({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="attach-button"
+                  className="attach-button size-11"
                   type="button"
                   disabled={fileLoading || loading}
                   aria-label={fileLoading ? 'Reading file' : 'Add files and more'}
@@ -320,7 +326,7 @@ export function ChatComposer({
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" side="top" className="add-menu">
+              <DropdownMenuContent align="start" side="top" className="add-menu w-64">
                 <DropdownMenuLabel>Add</DropdownMenuLabel>
                 <DropdownMenuItem onSelect={() => fileInputRef.current?.click()}>
                   <span className="add-menu-icon">
@@ -359,7 +365,7 @@ export function ChatComposer({
             ref={inputRef}
             id="chat-input"
             name="draft"
-            className="prompt-input"
+            className="prompt-input min-h-11 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
             value={draft}
             onChange={(e) => onDraftChange(e.target.value)}
             onKeyDown={(e) => {
@@ -392,10 +398,11 @@ export function ChatComposer({
               {/* One menu for the model and its effort, as in Claude: two pickers side by side crowded the bar. */}
               <DropdownMenu onOpenChange={onModelOpenChange}>
                 <DropdownMenuTrigger asChild>
-                  <button
+                  <Button
+                    variant="ghost"
                     type="button"
                     id="chat-model"
-                    className="model-control"
+                    className="model-control h-11 max-w-full gap-1 px-2 text-xs"
                     disabled={loading}
                   >
                     <span className="model-control-label">{selectedModel.label}</span>
@@ -403,17 +410,17 @@ export function ChatComposer({
                       <span className="model-control-effort">{reasoningLabel}</span>
                     )}
                     <ChevronDown aria-hidden="true" />
-                  </button>
+                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   side="bottom"
                   align="end"
-                  className="model-menu"
+                  className="model-menu w-72 max-w-[calc(100vw-2rem)] max-h-[min(70dvh,32rem)] overflow-y-auto"
                   tabIndex={0}
                   aria-label="Choose an AI model"
                 >
                   <DropdownMenuRadioGroup value={model} onValueChange={pickModel}>
-                    {MODELS.filter((item) => !item.legacy).map(modelOption)}
+                    {MODELS.map(modelOption)}
                   </DropdownMenuRadioGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuSub>
@@ -423,7 +430,7 @@ export function ChatComposer({
                         {reasoningOffered ? (reasoningLabel ?? 'Default') : 'Not available'}
                       </span>
                     </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="model-menu model-submenu">
+                    <DropdownMenuSubContent className="model-menu model-submenu w-72 max-w-[calc(100vw-2rem)] max-h-[min(70dvh,32rem)] overflow-y-auto w-60">
                       <DropdownMenuRadioGroup
                         value={reasoning ?? 'default'}
                         onValueChange={(value) =>
@@ -446,33 +453,28 @@ export function ChatComposer({
                             textValue={level.label}
                             className="model-option"
                           >
-                            <span className="model-option-copy">
+                            <span className="model-option-copy flex min-w-0 flex-1 flex-col gap-1">
                               <strong>{level.label}</strong>
-                              <span className="model-option-description">{level.description}</span>
+                              <span className="model-option-description text-xs text-muted-foreground">
+                                {level.description}
+                              </span>
                             </span>
                             {level.id === (reasoning ?? 'default') && (
-                              <Check className="model-option-check" aria-hidden="true" />
+                              <Check
+                                className="model-option-check size-4 shrink-0"
+                                aria-hidden="true"
+                              />
                             )}
                           </DropdownMenuRadioItem>
                         ))}
                       </DropdownMenuRadioGroup>
                     </DropdownMenuSubContent>
                   </DropdownMenuSub>
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger className="model-menu-row">
-                      <span>Other versions</span>
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="model-menu model-submenu">
-                      <DropdownMenuRadioGroup value={model} onValueChange={pickModel}>
-                        {MODELS.filter((item) => item.legacy).map(modelOption)}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
                   <DropdownMenuSeparator />
                   <p className="model-menu-note">
                     {availableModels === null
-                      ? 'Availability depends on your connected service.'
-                      : 'Only models included in this workspace’s connected plan can be selected.'}
+                      ? 'Availability depends on the Claude API.'
+                      : 'Only models included in your plan can be selected.'}
                   </p>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -483,7 +485,7 @@ export function ChatComposer({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="voice-button"
+                  className="voice-button size-11 aria-pressed:bg-destructive aria-pressed:text-white"
                   aria-label={listening ? 'Stop dictation' : 'Dictate your message'}
                   title={listening ? 'Stop dictation' : 'Dictate'}
                   aria-pressed={listening}
@@ -505,7 +507,8 @@ export function ChatComposer({
               {loading ? (
                 <Button
                   type="button"
-                  className="send-button stop-button"
+                  size="icon"
+                  className="send-button stop-button size-11"
                   aria-label="Stop response"
                   onClick={onStop}
                 >
@@ -515,7 +518,8 @@ export function ChatComposer({
               ) : (
                 <Button
                   type="submit"
-                  className="send-button"
+                  size="icon"
+                  className="send-button size-11"
                   disabled={!canSend}
                   aria-label="Send message"
                 >
@@ -530,7 +534,7 @@ export function ChatComposer({
       <div className="composer-help" id="composer-help">
         <span>AI can make mistakes. Check important answers.</span>
         <span className="composer-keyboard-hint">
-          <kbd>↵</kbd> Send <span aria-hidden="true">·</span> <kbd>Shift ↵</kbd> New line
+          <Kbd>↵</Kbd> Send <span aria-hidden="true">·</span> <Kbd>Shift ↵</Kbd> New line
         </span>
         {draft.length >= 8000 && (
           <span className="draft-count" aria-live="polite">

@@ -139,7 +139,7 @@ export function AccessDialog({
       }}
     >
       <DialogContent
-        className="auth-dialog"
+        className="auth-dialog max-h-[calc(100dvh-2rem)] overflow-y-auto"
         onCloseAutoFocus={(event) => {
           if (returnFocus) {
             event.preventDefault();
@@ -171,7 +171,7 @@ export function AccessDialog({
             <span>
               <Check />
             </span>
-            <Button asChild className="saas-primary">
+            <Button asChild className="saas-primary min-h-11 min-h-11">
               <AssistantLink>
                 Open workspace <ArrowRight size={16} />
               </AssistantLink>
@@ -186,7 +186,7 @@ export function AccessDialog({
                 setError('');
               }}
             >
-              <TabsList className="auth-tabs">
+              <TabsList className="auth-tabs w-full">
                 <TabsTrigger value="signup" disabled={busy}>
                   Register
                 </TabsTrigger>
@@ -200,7 +200,7 @@ export function AccessDialog({
                     <>
                       <Button
                         variant="outline"
-                        className="google-button"
+                        className="google-button w-full min-h-11 min-h-11"
                         disabled={google !== true || busy}
                         onClick={googleLogin}
                       >
@@ -233,6 +233,7 @@ export function AccessDialog({
                         <div className="auth-provider-retry">
                           <p className="auth-provider-note">Couldn’t load Google sign-in.</p>
                           <Button
+                            className="min-h-11"
                             variant="ghost"
                             onClick={() => setProviderAttempt((value) => value + 1)}
                           >
@@ -253,6 +254,7 @@ export function AccessDialog({
                           <div>
                             <Label htmlFor="auth-name">Full name</Label>
                             <Input
+                              className="h-11"
                               id="auth-name"
                               name="name"
                               autoComplete="name"
@@ -267,6 +269,7 @@ export function AccessDialog({
                         <div>
                           <Label htmlFor="auth-email">Email</Label>
                           <Input
+                            className="h-11"
                             id="auth-email"
                             name="email"
                             type="email"
@@ -280,6 +283,7 @@ export function AccessDialog({
                         <div>
                           <Label htmlFor="auth-password">Password</Label>
                           <Input
+                            className="h-11"
                             id="auth-password"
                             name="password"
                             type="password"
@@ -298,7 +302,11 @@ export function AccessDialog({
                             <AlertDescription>{error}</AlertDescription>
                           </Alert>
                         )}
-                        <Button type="submit" className="saas-primary" disabled={busy}>
+                        <Button
+                          type="submit"
+                          className="saas-primary min-h-11 min-h-11"
+                          disabled={busy}
+                        >
                           {busy ? <LoaderCircle className="animate-spin" size={18} /> : null}
                           {busy
                             ? 'Please wait…'

@@ -9,7 +9,9 @@ const messages: Record<string, string> = {
     'This model needs an active Pro plan. Choose a Free model or open your subscription settings.',
   model_unavailable:
     'This model is unavailable for this workspace. Choose another model and try again.',
-  quota_exhausted: 'The workspace has reached its usage limit. Please contact the workspace owner.',
+  usage_limit:
+    'You have reached your plan’s usage limit for now. It frees up again over time; see your Plan tab.',
+  refused: 'The assistant cannot help with this request. Try rephrasing your question.',
   rate_limited: 'Too many requests. Please wait a moment and try again.',
   timeout: 'The response took too long. Please try again.',
   provider_unavailable: 'The assistant could not respond. Please try again in a moment.',

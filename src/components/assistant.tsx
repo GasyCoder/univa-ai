@@ -1,5 +1,6 @@
 'use client';
 
+import { toast } from 'sonner';
 import { DOCUMENT_PATTERN, extractDocumentText, MAX_FILE_BYTES } from '@/lib/extract-document';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -13,7 +14,7 @@ import { MobileNavigation } from './mobile-navigation';
 import { AssistantSidebar } from './assistant-sidebar';
 import { ArrowDown, Download, MoreHorizontal } from 'lucide-react';
 import { AssistantResponse } from './assistant-response';
-import { ArtifactCard, ArtifactPanel, ResizeHandle } from './artifact-panel';
+import { ArtifactCard, ArtifactPanel } from './artifact-panel';
 import {
   type Artifact,
   attachmentArtifact,
@@ -22,13 +23,16 @@ import {
   splitResponse,
 } from '@/lib/artifacts';
 import { pruneFiles, saveFile } from '@/lib/file-store';
-import { PANEL_DEFAULT, useArtifactPanel } from '@/lib/use-artifact-panel';
+import { PANEL_DEFAULT, PANEL_MIN, PANEL_MAX, useArtifactPanel } from '@/lib/use-artifact-panel';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import type { GroupImperativeHandle } from 'react-resizable-panels';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ChatComposer } from './chat-composer';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -146,6 +150,8 @@ export function Assistant({
   const panel = useArtifactPanel();
   const busy = useRef(false);
   const [sideOpen, setSideOpen] = useState(false);
+  const [wideWorkspace, setWideWorkspace] = useState(false);
+  const splitGroup = useRef<GroupImperativeHandle>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const focusAfterSidebarClose = useRef(false);
@@ -168,6 +174,25 @@ export function Assistant({
   const modelAvailable = availableModels === null || availableModels.includes(model);
   const canSend = ready && modelAvailable && !loading && !fileLoading && (!!draft.trim() || !!file);
   const canRetry = failed?.id === currentId && !!failed && !loading;
+  const retry = useRef(() => {});
+  useEffect(() => {
+    if (!error) {
+      toast.dismiss('chat-error');
+      return;
+    }
+    // A failure that can be retried stays until the user acts on it.
+    // Stopping is the user's own action, not a failure.
+    (error === 'Response stopped.' ? toast.info : toast.error)(error, {
+      id: 'chat-error',
+      duration: canRetry ? Infinity : 8000,
+      action: canRetry ? { label: 'Try again', onClick: () => retry.current() } : undefined,
+      onDismiss: () => setError(''),
+      onAutoClose: () => setError(''),
+    });
+  }, [error, canRetry]);
+  retry.current = () => {
+    if (current) void complete(current);
+  };
   const streamingText = streaming && streaming.chatId === currentId ? streaming.text : null;
   const activeReasoning = reasoning && reasoningLevelsFor(model)[reasoning] ? reasoning : undefined;
   // Every file of this conversation, by id: the panel always shows the latest content.
@@ -221,8 +246,10 @@ export function Assistant({
     setDraft((params.get('prompt') ?? '').slice(0, 10000));
     setReady(true);
     const resize = () => {
+      setWideWorkspace(window.innerWidth >= 1024);
       if (window.innerWidth >= 1024) setSideOpen(false);
     };
+    resize();
     window.addEventListener('resize', resize);
     return () => {
       window.removeEventListener('resize', resize);
@@ -557,25 +584,6 @@ export function Assistant({
           hasMessages={!!messages.length}
           onSend={send}
         />
-        {error && (
-          <Alert variant="destructive" className="chat-error">
-            <AlertDescription>{error}</AlertDescription>
-            {canRetry ? (
-              <Button variant="ghost" onClick={() => current && complete(current)}>
-                Try again <Icon name="right" />
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setError('')}
-                aria-label="Dismiss message"
-              >
-                <Icon name="close" />
-              </Button>
-            )}
-          </Alert>
-        )}
       </>
     );
   }
@@ -614,9 +622,23 @@ export function Assistant({
     );
   }
 
+  // Keep the saved normal split when a file is maximized or restored.
+  useEffect(() => {
+    if (!wideWorkspace || !shownArtifact) return;
+    const expanded = panel.mode === 'maximized';
+    splitGroup.current?.setLayout({
+      conversation: expanded ? 0 : 100 - panel.size,
+      artifact: expanded ? 100 : panel.size,
+    });
+  }, [wideWorkspace, shownArtifact?.id, panel.mode, panel.size]);
+
   if (!isPending && (!session || session.user.id !== user.id)) return null;
   return (
-    <>
+    <SidebarProvider
+      className="block min-h-0"
+      open={!sidebarCollapsed}
+      onOpenChange={(open) => setSidebarCollapsed(!open)}
+    >
       <a href="#chat-content" className="skip-link" inert={modelOpen}>
         Skip to assistant
       </a>
@@ -627,303 +649,334 @@ export function Assistant({
         inert={modelOpen}
       >
         {sidebar()}
-        <div
-          className="workspace-split"
+        <ResizablePanelGroup
+          groupRef={splitGroup}
+          orientation="horizontal"
+          className="workspace-split min-w-0 flex-1"
           data-panel={shownArtifact ? panel.mode : 'closed'}
-          style={{ '--panel-size': `${panel.size}%` } as React.CSSProperties}
+          disabled={!wideWorkspace || !shownArtifact || panel.mode !== 'normal'}
+          onLayoutChanged={(layout, { isUserInteraction }) => {
+            if (isUserInteraction && layout.artifact !== undefined && panel.mode === 'normal') {
+              panel.setSize(layout.artifact);
+            }
+          }}
         >
-          <main id="chat-content" className="chat-main">
-            <header className="chat-topbar">
-              <div>
-                <Sheet open={sideOpen} onOpenChange={setSideOpen}>
-                  <MobileNavigation label="Mobile workspace navigation">
-                    <SheetTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        className="mobile-nav-item"
-                        aria-label="Open navigation"
-                      >
-                        <Icon name="chat" />
-                        <span>Chats</span>
-                      </Button>
-                    </SheetTrigger>
-                    <Button
-                      variant="ghost"
-                      className="mobile-nav-item mobile-nav-primary"
-                      onClick={newChat}
-                      disabled={loading}
-                      aria-label="New conversation"
-                    >
-                      <Icon name="plus" />
-                      <span>New chat</span>
-                    </Button>
-                    <Button variant="ghost" asChild className="mobile-nav-item">
-                      <Link href="/">
-                        <Icon name="home" />
-                        <span>Home</span>
-                      </Link>
-                    </Button>
-                    <ThemeToggle
-                      label="Theme"
-                      className="mobile-nav-item"
-                      onThemeChange={saveTheme}
-                    />
-                  </MobileNavigation>
-                  <SheetContent
-                    side="left"
-                    className="mobile-chat-sheet workspace-chat-sheet"
-                    onCloseAutoFocus={(event) => {
-                      if (focusAfterSidebarClose.current) {
-                        event.preventDefault();
-                        focusAfterSidebarClose.current = false;
-                        focus();
-                      }
-                    }}
-                  >
-                    <SheetTitle className="sr-only">Your conversations</SheetTitle>
-                    <SheetDescription className="sr-only">
-                      Chat history and new conversation
-                    </SheetDescription>
-                    {sidebar(true)}
-                  </SheetContent>
-                </Sheet>
-                <strong className="workspace-header-title" title={current?.title}>
-                  {current ? (
-                    current.title
-                  ) : (
-                    <>
-                      <span className="workspace-brand-short">UNUVIA</span>
-                      <span className="workspace-brand-full">UNUVIA workspace</span>
-                    </>
-                  )}
-                </strong>
-                <Badge variant="secondary" className="preview-label">
-                  {PLANS[account.plan].label}
-                </Badge>
-              </div>
-              <div className="role-control">
-                <ThemeToggle onThemeChange={saveTheme} />
-                <Icon name="school" />
-                <Label htmlFor="chat-role" className="sr-only">
-                  My workspace role
-                </Label>
-                <span className="role-caption" aria-hidden="true">
-                  My role
-                </span>
-                <Select
-                  value={role}
-                  onValueChange={(v) => {
-                    if (ROLES.some((item) => item.id === v)) setRole(v as UniversityRole);
-                  }}
-                  disabled={loading}
-                >
-                  <SelectTrigger id="chat-role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROLES.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {current && (
-                  <DropdownMenu modal={false}>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="workspace-topbar-menu"
-                        aria-label="Conversation actions"
-                      >
-                        <MoreHorizontal />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="workspace-action-menu">
-                      <DropdownMenuItem onSelect={downloadConversation}>
-                        <Download /> Download conversation
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
-            </header>
-            <div
-              ref={scroll}
-              onScroll={() => {
-                const el = scroll.current;
-                if (el) {
-                  followResponse.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
-                  setAwayFromLatest(!followResponse.current);
-                  lastFollowPosition.current = el.scrollTop;
-                }
-              }}
-              className={`chat-scroll ${messages.length ? 'conversation-scroll' : 'welcome-scroll'}`}
-            >
-              {!messages.length ? (
-                <div className="assistant-welcome">
-                  <div className="welcome-intro">
-                    <p className="workspace-greeting">
-                      Hello, {user.name.trim().split(/\s+/)[0] || 'there'}.
-                    </p>
-                    <h1>What are you working on?</h1>
-                    <p>A question, your notes, or an idea to work through.</p>
-                  </div>
-                  {composer()}
-                  <div className="suggestions-heading">
-                    <span>A few starting points</span>
-                    <span>Make them your own</span>
-                  </div>
-                  <div className="assistant-cards">
-                    {assistants.map((assistant) => (
-                      <Card className="assistant-card" key={assistant.title}>
+          <ResizablePanel
+            id="conversation"
+            minSize={wideWorkspace && shownArtifact && panel.mode === 'maximized' ? '0%' : '35%'}
+            maxSize={wideWorkspace && shownArtifact && panel.mode === 'maximized' ? '0%' : '100%'}
+            className="flex min-h-0 min-w-0"
+          >
+            <main id="chat-content" className="chat-main">
+              <header className="chat-topbar">
+                <div>
+                  <Sheet open={sideOpen} onOpenChange={setSideOpen}>
+                    <MobileNavigation label="Mobile workspace navigation">
+                      <SheetTrigger asChild>
                         <Button
                           variant="ghost"
-                          className="assistant-card-action"
-                          onClick={() => {
-                            setRole(assistant.role);
-                            setDraft(assistant.prompt);
-                            focus();
-                          }}
+                          className="mobile-nav-item flex h-auto min-h-12 flex-1 flex-col items-center justify-center gap-1 px-1 py-2 text-[10px] text-muted-foreground"
+                          aria-label="Open navigation"
                         >
-                          <span className={`feature-icon ${assistant.color}`}>
-                            <Icon name={assistant.icon} />
-                          </span>
-                          <span className="assistant-card-copy">
-                            <strong>{assistant.title}</strong>
-                            <span>{assistant.description}</span>
-                          </span>
-                          <Icon name="arrow" />
+                          <Icon name="chat" />
+                          <span>Chats</span>
                         </Button>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className="messages"
-                  aria-live={streamingText ? 'off' : 'polite'}
-                  aria-relevant="additions"
-                  aria-label="Conversation messages"
-                >
-                  {messages.map((message, i) => (
-                    <article
-                      key={`${currentId}-${i}`}
-                      className={`message ${message.role === 'user' ? 'user' : ''}`}
-                      aria-label={message.role === 'user' ? 'Your message' : 'UNUVIA response'}
+                      </SheetTrigger>
+                      <Button
+                        variant="ghost"
+                        className="mobile-nav-item mobile-nav-primary flex h-auto min-h-12 flex-1 flex-col items-center justify-center gap-1 px-1 py-2 text-[10px] text-muted-foreground text-foreground"
+                        onClick={newChat}
+                        disabled={loading}
+                        aria-label="New conversation"
+                      >
+                        <Icon name="plus" />
+                        <span>New chat</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        asChild
+                        className="mobile-nav-item flex h-auto min-h-12 flex-1 flex-col items-center justify-center gap-1 px-1 py-2 text-[10px] text-muted-foreground"
+                      >
+                        <Link href="/">
+                          <Icon name="home" />
+                          <span>Home</span>
+                        </Link>
+                      </Button>
+                      <ThemeToggle
+                        label="Theme"
+                        className="mobile-nav-item flex h-auto min-h-12 flex-1 flex-col items-center justify-center gap-1 px-1 py-2 text-[10px] text-muted-foreground"
+                        onThemeChange={saveTheme}
+                      />
+                    </MobileNavigation>
+                    <SheetContent
+                      side="left"
+                      className="mobile-chat-sheet workspace-chat-sheet w-[min(90vw,20rem)] gap-0 bg-sidebar p-0 pt-12"
+                      onCloseAutoFocus={(event) => {
+                        if (focusAfterSidebarClose.current) {
+                          event.preventDefault();
+                          focusAfterSidebarClose.current = false;
+                          focus();
+                        }
+                      }}
                     >
-                      {message.role === 'assistant' && (
+                      <SheetTitle className="sr-only">Your conversations</SheetTitle>
+                      <SheetDescription className="sr-only">
+                        Chat history and new conversation
+                      </SheetDescription>
+                      {sidebar(true)}
+                    </SheetContent>
+                  </Sheet>
+                  <strong className="workspace-header-title" title={current?.title}>
+                    {current ? (
+                      current.title
+                    ) : (
+                      <>
+                        <span className="workspace-brand-short">UNUVIA</span>
+                        <span className="workspace-brand-full">UNUVIA workspace</span>
+                      </>
+                    )}
+                  </strong>
+                  <Badge variant="secondary" className="preview-label">
+                    {PLANS[account.plan].label}
+                  </Badge>
+                </div>
+                <div className="role-control">
+                  <ThemeToggle onThemeChange={saveTheme} />
+                  <Icon name="school" />
+                  <Label htmlFor="chat-role" className="sr-only">
+                    My workspace role
+                  </Label>
+                  <span className="role-caption" aria-hidden="true">
+                    My role
+                  </span>
+                  <Select
+                    value={role}
+                    onValueChange={(v) => {
+                      if (ROLES.some((item) => item.id === v)) setRole(v as UniversityRole);
+                    }}
+                    disabled={loading}
+                  >
+                    <SelectTrigger id="chat-role">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ROLES.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {current && (
+                    <DropdownMenu modal={false}>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="workspace-topbar-menu"
+                          aria-label="Conversation actions"
+                        >
+                          <MoreHorizontal />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="workspace-action-menu">
+                        <DropdownMenuItem onSelect={downloadConversation}>
+                          <Download /> Download conversation
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              </header>
+              <div
+                ref={scroll}
+                onScroll={() => {
+                  const el = scroll.current;
+                  if (el) {
+                    followResponse.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
+                    setAwayFromLatest(!followResponse.current);
+                    lastFollowPosition.current = el.scrollTop;
+                  }
+                }}
+                className={`chat-scroll ${messages.length ? 'conversation-scroll' : 'welcome-scroll'}`}
+              >
+                {!messages.length ? (
+                  <div className="assistant-welcome">
+                    <div className="welcome-intro">
+                      <p className="workspace-greeting">
+                        Hello, {user.name.trim().split(/\s+/)[0] || 'there'}.
+                      </p>
+                      <h1>What are you working on?</h1>
+                      <p>A question, your notes, or an idea to work through.</p>
+                    </div>
+                    {composer()}
+                    <div className="suggestions-heading">
+                      <span>A few starting points</span>
+                      <span>Make them your own</span>
+                    </div>
+                    <div className="assistant-cards">
+                      {assistants.map((assistant) => (
+                        <Card className="assistant-card gap-0 p-0" key={assistant.title}>
+                          <Button
+                            variant="ghost"
+                            className="assistant-card-action h-auto min-h-20 w-full justify-start gap-3 whitespace-normal p-4 text-left"
+                            onClick={() => {
+                              setRole(assistant.role);
+                              setDraft(assistant.prompt);
+                              focus();
+                            }}
+                          >
+                            <span className={`feature-icon ${assistant.color}`}>
+                              <Icon name={assistant.icon} />
+                            </span>
+                            <span className="assistant-card-copy">
+                              <strong>{assistant.title}</strong>
+                              <span>{assistant.description}</span>
+                            </span>
+                            <Icon name="arrow" />
+                          </Button>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="messages"
+                    aria-live={streamingText ? 'off' : 'polite'}
+                    aria-relevant="additions"
+                    aria-label="Conversation messages"
+                  >
+                    {messages.map((message, i) => (
+                      <article
+                        key={`${currentId}-${i}`}
+                        className={`message ${message.role === 'user' ? 'user' : ''}`}
+                        aria-label={message.role === 'user' ? 'Your message' : 'UNUVIA response'}
+                      >
+                        {message.role === 'assistant' && (
+                          <span className="ai-mark">
+                            <img src="/assets/univa-icon.png" alt="" width="22" height="22" />
+                            <span>UNUVIA</span>
+                          </span>
+                        )}
+                        <div className="message-body">
+                          {message.fileName &&
+                            (() => {
+                              const artifact = artifacts.get(
+                                message.attachment?.id ?? `${currentId}:${i}:file`
+                              );
+                              return artifact ? (
+                                <ArtifactCard
+                                  artifact={{ ...artifact, name: message.fileName }}
+                                  active={shownArtifact?.id === artifact.id}
+                                  onOpen={() => panel.openArtifact(artifact)}
+                                />
+                              ) : (
+                                <span className="message-file">
+                                  <Icon name="file" />
+                                  {message.fileName}
+                                </span>
+                              );
+                            })()}
+                          {message.role === 'user' ? (
+                            <p>{message.display || message.content}</p>
+                          ) : (
+                            <AssistantResponse
+                              content={message.content}
+                              messageKey={`${currentId}:${i}`}
+                              stopped={message.stopped}
+                              copied={copied === i}
+                              onCopy={() => copy(message.content, i)}
+                              activeArtifactId={shownArtifact?.id}
+                              onOpenArtifact={panel.openArtifact}
+                            />
+                          )}
+                        </div>
+                      </article>
+                    ))}
+                    {streamingText && (
+                      <article className="message" aria-label="UNUVIA response">
                         <span className="ai-mark">
                           <img src="/assets/univa-icon.png" alt="" width="22" height="22" />
                           <span>UNUVIA</span>
                         </span>
-                      )}
-                      <div className="message-body">
-                        {message.fileName &&
-                          (() => {
-                            const artifact = artifacts.get(
-                              message.attachment?.id ?? `${currentId}:${i}:file`
-                            );
-                            return artifact ? (
-                              <ArtifactCard
-                                artifact={{ ...artifact, name: message.fileName }}
-                                active={shownArtifact?.id === artifact.id}
-                                onOpen={() => panel.openArtifact(artifact)}
-                              />
-                            ) : (
-                              <span className="message-file">
-                                <Icon name="file" />
-                                {message.fileName}
-                              </span>
-                            );
-                          })()}
-                        {message.role === 'user' ? (
-                          <p>{message.display || message.content}</p>
-                        ) : (
+                        <div className="message-body">
                           <AssistantResponse
-                            content={message.content}
-                            messageKey={`${currentId}:${i}`}
-                            stopped={message.stopped}
-                            copied={copied === i}
-                            onCopy={() => copy(message.content, i)}
+                            content={streamingText}
+                            messageKey={`${currentId}:${messages.length}`}
+                            streaming
+                            copied={false}
+                            onCopy={() => {}}
                             activeArtifactId={shownArtifact?.id}
                             onOpenArtifact={panel.openArtifact}
                           />
-                        )}
+                        </div>
+                      </article>
+                    )}
+                    {loading && !streamingText && (
+                      <div className="message">
+                        <span className="ai-mark">
+                          <img src="/assets/univa-icon.png" alt="" width="22" height="22" />
+                          <span>UNUVIA</span>
+                        </span>
+                        <span
+                          className="thinking"
+                          role="status"
+                          aria-label="UNUVIA is preparing a response"
+                        >
+                          <Skeleton className="h-3 w-48" />
+                          <Skeleton className="h-3 w-36" />
+                        </span>
                       </div>
-                    </article>
-                  ))}
-                  {streamingText && (
-                    <article className="message" aria-label="UNUVIA response">
-                      <span className="ai-mark">
-                        <img src="/assets/univa-icon.png" alt="" width="22" height="22" />
-                        <span>UNUVIA</span>
-                      </span>
-                      <div className="message-body">
-                        <AssistantResponse
-                          content={streamingText}
-                          messageKey={`${currentId}:${messages.length}`}
-                          streaming
-                          copied={false}
-                          onCopy={() => {}}
-                          activeArtifactId={shownArtifact?.id}
-                          onOpenArtifact={panel.openArtifact}
-                        />
-                      </div>
-                    </article>
+                    )}
+                  </div>
+                )}
+              </div>
+              {messages.length > 0 && (
+                <div className="chat-composer-area">
+                  {awayFromLatest && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="workspace-jump-latest absolute -top-12 left-1/2 -translate-x-1/2 shadow-sm"
+                      aria-label="Jump to latest message"
+                      onClick={() => {
+                        followResponse.current = true;
+                        lastFollowPosition.current = 0;
+                        followLatest();
+                        setAwayFromLatest(false);
+                      }}
+                    >
+                      <ArrowDown />
+                    </Button>
                   )}
-                  {loading && !streamingText && (
-                    <div className="message">
-                      <span className="ai-mark">
-                        <img src="/assets/univa-icon.png" alt="" width="22" height="22" />
-                        <span>UNUVIA</span>
-                      </span>
-                      <span
-                        className="thinking"
-                        role="status"
-                        aria-label="UNUVIA is preparing a response"
-                      >
-                        <i />
-                        <i />
-                        <i />
-                      </span>
-                    </div>
-                  )}
+                  <div className="chat-composer-inner">{composer()}</div>
                 </div>
               )}
-            </div>
-            {messages.length > 0 && (
-              <div className="chat-composer-area">
-                {awayFromLatest && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="workspace-jump-latest"
-                    aria-label="Jump to latest message"
-                    onClick={() => {
-                      followResponse.current = true;
-                      lastFollowPosition.current = 0;
-                      followLatest();
-                      setAwayFromLatest(false);
-                    }}
-                  >
-                    <ArrowDown />
-                  </Button>
-                )}
-                <div className="chat-composer-inner">{composer()}</div>
-              </div>
-            )}
-          </main>
-          {shownArtifact && (
-            <>
-              {panel.mode === 'normal' && (
-                <ResizeHandle
-                  size={panel.size}
-                  onResize={panel.setSize}
-                  onReset={() => panel.setSize(PANEL_DEFAULT)}
-                />
-              )}
+            </main>
+          </ResizablePanel>
+          <ResizableHandle
+            withHandle
+            className={
+              wideWorkspace && shownArtifact && panel.mode === 'normal' ? undefined : 'hidden'
+            }
+            disabled={!wideWorkspace || !shownArtifact || panel.mode !== 'normal'}
+            aria-label="Resize file panel"
+            onDoubleClick={() => panel.setSize(PANEL_DEFAULT)}
+          />
+          <ResizablePanel
+            id="artifact"
+            defaultSize="0%"
+            minSize={wideWorkspace && shownArtifact ? `${PANEL_MIN}%` : '0%'}
+            maxSize={
+              wideWorkspace && shownArtifact
+                ? panel.mode === 'maximized'
+                  ? '100%'
+                  : `${PANEL_MAX}%`
+                : '0%'
+            }
+            className="flex min-h-0 min-w-0"
+          >
+            {shownArtifact && wideWorkspace && (
               <ArtifactPanel
                 artifact={shownArtifact}
                 userId={user.id}
@@ -936,10 +989,24 @@ export function Assistant({
                 onFullscreen={panel.fullscreenArtifact}
                 onRestore={panel.restoreArtifact}
               />
-            </>
+            )}
+          </ResizablePanel>
+          {shownArtifact && !wideWorkspace && (
+            <ArtifactPanel
+              artifact={shownArtifact}
+              userId={user.id}
+              mode={panel.mode}
+              onClose={() => {
+                panel.closeArtifact();
+                focus();
+              }}
+              onMaximize={panel.maximizeArtifact}
+              onFullscreen={panel.fullscreenArtifact}
+              onRestore={panel.restoreArtifact}
+            />
           )}
-        </div>
+        </ResizablePanelGroup>
       </div>
-    </>
+    </SidebarProvider>
   );
 }

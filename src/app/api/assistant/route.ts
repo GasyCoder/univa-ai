@@ -1,5 +1,5 @@
 import { getAuthDatabase } from '@/lib/auth';
-import { assistantAccess, apiFailure, requireAccount } from '@/lib/account';
+import { assistantAccess, apiFailure, recordUsage, requireAccount, usageFor } from '@/lib/account';
 import { PLANS } from '@/lib/plans';
 import {
   MODELS,
@@ -10,7 +10,7 @@ import {
   type UniversityRole,
 } from '@/lib/chat-models';
 import { buildAssistantRequest } from '@/lib/assistant-request';
-import { streamWithApmix, ApmixError } from '@/lib/apmix';
+import { streamWithClaude, ClaudeError } from '@/lib/claude';
 
 export const runtime = 'nodejs';
 
@@ -34,7 +34,7 @@ async function readBody(request: Request): Promise<unknown> {
       size += value.byteLength;
       if (size > MAX_BYTES) {
         await reader.cancel();
-        throw new ApmixError('context_too_large', 413);
+        throw new ClaudeError('context_too_large', 413);
       }
       text += decoder.decode(value, { stream: true });
     }
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   try {
     body = await readBody(request);
   } catch (error) {
-    return error instanceof ApmixError
+    return error instanceof ClaudeError
       ? failure(error.code, error.status)
       : failure('invalid_request', 400);
   }
@@ -104,12 +104,13 @@ export async function POST(request: Request) {
   }
   if (total > MAX_CONTENT) return failure('context_too_large', 413);
   if (sanitized.at(-1)?.role !== 'user') return failure('invalid_request', 400);
-  const apiKey = process.env.APMIX_API_KEY?.trim();
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) return failure('not_configured', 503);
 
   try {
     const { plan, modelIds } = await assistantAccess(user.id, null);
     if (!modelIds.includes(model)) return failure('model_not_allowed', 403);
+    if ((await usageFor(user.id, plan)).percent >= 100) return failure('usage_limit', 429);
     const database = await getAuthDatabase();
     const window = Math.floor(Date.now() / 60000);
     const permit = await database.query(
@@ -129,7 +130,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const stream = await streamWithApmix(
+    const stream = await streamWithClaude(
       buildAssistantRequest(
         sanitized,
         role as UniversityRole,
@@ -137,7 +138,11 @@ export async function POST(request: Request) {
         reasoning as ReasoningLevel | undefined
       ),
       apiKey,
-      request.signal
+      request.signal,
+      (usage) =>
+        void recordUsage(user.id, model, usage).catch(() =>
+          console.error('Assistant usage could not be recorded.')
+        )
     );
     return new Response(stream, {
       headers: {
@@ -147,7 +152,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    return error instanceof ApmixError
+    return error instanceof ClaudeError
       ? failure(error.code, error.status)
       : failure('provider_unavailable', 502);
   }

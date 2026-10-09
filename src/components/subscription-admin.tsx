@@ -11,6 +11,8 @@ import {
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { Skeleton } from './ui/skeleton';
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from './ui/empty';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Alert, AlertDescription } from './ui/alert';
@@ -105,7 +107,7 @@ export function SubscriptionAdmin() {
   const pending = data.requests.filter((item) => item.status === 'pending');
   return (
     <main className="account-surface min-h-dvh bg-background text-foreground">
-      <header className="mx-auto flex max-w-6xl items-center justify-between border-b px-4 py-4 sm:px-8">
+      <header className="mx-auto flex max-w-7xl items-center justify-between border-b px-4 py-4 sm:px-8">
         <Link href="/account" className="inline-flex min-h-11 items-center gap-2 text-sm">
           <ArrowLeft size={16} />
           Back to account
@@ -120,18 +122,19 @@ export function SubscriptionAdmin() {
           }}
         />
       </header>
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8 sm:py-12">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-8 sm:py-12">
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="mb-2 text-xs tracking-widest text-muted-foreground">
+            <p className="mb-2 text-xs font-medium tracking-wider text-muted-foreground">
               UNUVIA ADMINISTRATION
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight">Subscriptions</h1>
+            <h1 className="type-page-title">Subscriptions</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Verify payments before granting Pro access.
             </p>
           </div>
           <Button
+            className="min-h-11"
             variant="outline"
             disabled={loading || busy}
             onClick={() => {
@@ -167,9 +170,21 @@ export function SubscriptionAdmin() {
           </TabsList>
           <TabsContent value="requests">
             <div className="space-y-4">
-              {loading && <p role="status">Loading records…</p>}
+              {loading && (
+                <div role="status" aria-label="Loading records" className="space-y-3">
+                  <Skeleton className="h-32 w-full" />
+                  <Skeleton className="h-32 w-full" />
+                </div>
+              )}
               {!loading && !data.requests.length && (
-                <Card className="p-6 text-sm text-muted-foreground">No payment requests yet.</Card>
+                <Empty className="border">
+                  <EmptyHeader>
+                    <EmptyTitle>No payment requests yet.</EmptyTitle>
+                    <EmptyDescription>
+                      New payment requests will appear here for review.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               )}
               {data.requests.map((item) => (
                 <Card key={item.id} className="gap-4 p-5 sm:p-6">
@@ -202,12 +217,14 @@ export function SubscriptionAdmin() {
                   {item.status === 'pending' && (
                     <div className="flex flex-wrap gap-2">
                       <Button
+                        className="min-h-11"
                         disabled={busy || loading}
                         onClick={() => open({ id: item.id, action: 'approve', email: item.email! })}
                       >
                         Approve payment
                       </Button>
                       <Button
+                        className="min-h-11"
                         variant="outline"
                         disabled={busy || loading}
                         onClick={() => open({ id: item.id, action: 'reject', email: item.email! })}
@@ -223,7 +240,12 @@ export function SubscriptionAdmin() {
           <TabsContent value="subscriptions">
             <div className="space-y-4">
               {!loading && !data.subscriptions.length && (
-                <Card className="p-6 text-sm text-muted-foreground">No Pro subscriptions yet.</Card>
+                <Empty className="border">
+                  <EmptyHeader>
+                    <EmptyTitle>No Pro subscriptions yet.</EmptyTitle>
+                    <EmptyDescription>Approved subscriptions will appear here.</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               )}
               {data.subscriptions.map((item) => {
                 const expired =
@@ -242,6 +264,7 @@ export function SubscriptionAdmin() {
                     </p>
                     <div className="flex flex-wrap gap-2">
                       <Button
+                        className="min-h-11"
                         variant="outline"
                         disabled={busy || loading}
                         onClick={() =>
@@ -252,6 +275,7 @@ export function SubscriptionAdmin() {
                       </Button>
                       {item.status === 'active' && !expired && (
                         <Button
+                          className="min-h-11"
                           variant="outline"
                           disabled={busy || loading}
                           onClick={() =>
@@ -269,7 +293,7 @@ export function SubscriptionAdmin() {
           </TabsContent>
           <TabsContent value="events">
             <Card className="p-5 sm:p-6">
-              <h2 className="text-xl font-semibold">Subscription activity</h2>
+              <h2 className="type-card-title">Subscription activity</h2>
               {!data.events.length ? (
                 <p className="text-sm text-muted-foreground">No changes recorded yet.</p>
               ) : (
@@ -302,7 +326,7 @@ export function SubscriptionAdmin() {
         }}
       >
         <DialogContent
-          className="account-dialog"
+          className="account-dialog max-h-[calc(100dvh-2rem)] overflow-y-auto"
           onOpenAutoFocus={(e) => {
             e.preventDefault();
             cancel.current?.focus();
@@ -348,6 +372,7 @@ export function SubscriptionAdmin() {
             )}
             <DialogFooter>
               <Button
+                className="min-h-11"
                 ref={cancel}
                 type="button"
                 variant="outline"
@@ -357,6 +382,7 @@ export function SubscriptionAdmin() {
                 Go back
               </Button>
               <Button
+                className="min-h-11"
                 type="submit"
                 variant={action?.action === 'cancel' ? 'destructive' : 'default'}
                 disabled={busy || (action?.action === 'reject' && !note.trim())}

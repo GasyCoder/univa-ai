@@ -16,8 +16,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { authClient } from '@/lib/auth-client';
 
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
@@ -163,7 +166,7 @@ export function DrivePicker({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="drive-picker"
+        className="drive-picker max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl"
         onOpenAutoFocus={(e) => {
           e.preventDefault();
           searchInput.current?.focus();
@@ -190,20 +193,24 @@ export function DrivePicker({
           </div>
         ) : (
           <>
-            <label className="drive-picker-search">
+            <Label className="drive-picker-search relative">
               <Search size={16} aria-hidden="true" />
               <span className="sr-only">Search Google Drive</span>
               <Input
+                className="pl-9"
                 ref={searchInput}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search your Drive"
               />
-            </label>
-            <div className="drive-picker-list" aria-busy={state.kind === 'loading'}>
+            </Label>
+            <ScrollArea
+              className="drive-picker-list h-[min(50dvh,24rem)]"
+              aria-busy={state.kind === 'loading'}
+            >
               {state.kind === 'loading' && (
                 <p className="drive-picker-note">
-                  <LoaderCircle className="animate-spin" size={16} /> Loading your files…
+                  <Spinner /> Loading your files…
                 </p>
               )}
               {state.kind === 'error' && (
@@ -218,10 +225,11 @@ export function DrivePicker({
               )}
               {state.kind === 'ready' &&
                 state.files.map((file) => (
-                  <button
+                  <Button
+                    variant="ghost"
                     key={file.id}
                     type="button"
-                    className="drive-picker-item"
+                    className="drive-picker-item h-auto min-h-11 w-full justify-start gap-3 text-left"
                     disabled={picking !== null}
                     onClick={() => void pick(file)}
                   >
@@ -234,9 +242,9 @@ export function DrivePicker({
                     </span>
                     <span className="drive-picker-name">{file.name}</span>
                     <span className="drive-picker-date">{formatDate(file.modifiedTime)}</span>
-                  </button>
+                  </Button>
                 ))}
-            </div>
+            </ScrollArea>
             <p className="drive-picker-hint">
               Docs, Sheets, Slides, PDF, Word, text and images · up to 10 MB
             </p>

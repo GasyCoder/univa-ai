@@ -17,7 +17,7 @@ const env = {
   DATABASE_URL: url.href,
   BETTER_AUTH_URL: origin,
   BETTER_AUTH_SECRET: randomBytes(48).toString('hex'),
-  APMIX_API_KEY: '',
+  ANTHROPIC_API_KEY: '',
   ADMIN_EMAILS: 'subscription-admin@example.test',
   PAYMENT_MOBILE_MONEY_INSTRUCTIONS: 'TEST ONLY: Mobile Money merchant instructions.',
   PAYMENT_CARD_INSTRUCTIONS: 'TEST ONLY: external card payment instructions.',

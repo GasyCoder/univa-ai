@@ -18,6 +18,18 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { loadFile } from '@/lib/file-store';
 import { parseCsv, readXlsx, type Sheet } from '@/lib/office';
 import type { Artifact } from '@/lib/artifacts';
@@ -45,18 +57,20 @@ function Toggle({
   label: string;
 }) {
   return (
-    <div className="viewer-toggle" role="group" aria-label={label}>
+    <ToggleGroup
+      type="single"
+      value={value}
+      onValueChange={(next) => {
+        if (next) onChange(next);
+      }}
+      aria-label={label}
+    >
       {options.map((option) => (
-        <button
-          key={option}
-          type="button"
-          aria-pressed={value === option}
-          onClick={() => onChange(option)}
-        >
+        <ToggleGroupItem key={option} value={option} size="sm">
           {option}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }
 
@@ -355,50 +369,53 @@ function SheetViewer({ sheets }: { sheets: Sheet[] }) {
     <div className="viewer viewer-sheet">
       <Toolbar>
         {sheets.length > 1 && (
-          <div className="viewer-toggle" role="tablist" aria-label="Sheets">
-            {sheets.map((item, i) => (
-              <button
-                key={`${item.name}-${i}`}
-                type="button"
-                role="tab"
-                aria-selected={i === index}
-                onClick={() => {
-                  setIndex(i);
-                  setSort(null);
-                }}
-              >
-                {item.name}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            value={String(index)}
+            onValueChange={(value) => {
+              setIndex(Number(value));
+              setSort(null);
+            }}
+          >
+            <TabsList aria-label="Sheets" className="max-w-full overflow-x-auto">
+              {sheets.map((item, i) => (
+                <TabsTrigger key={`${item.name}-${i}`} value={String(i)}>
+                  {item.name}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         )}
-        <label className="viewer-search">
+        <Label className="viewer-search">
           <Search size={15} aria-hidden="true" />
           <span className="sr-only">Search this table</span>
-          <input
+          <Input
+            className="h-8 w-40 pl-8"
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search"
           />
-        </label>
+        </Label>
         <span className="viewer-status">
           {rows.length.toLocaleString('en-US')} row{rows.length === 1 ? '' : 's'}
         </span>
       </Toolbar>
       <div className="viewer-table-wrap">
-        <table className="viewer-table">
-          <thead>
-            <tr>
+        <Table className="viewer-table">
+          <TableHeader>
+            <TableRow>
               {Array.from({ length: columns }, (_, c) => {
                 const active = sort?.column === c;
                 return (
-                  <th
+                  <TableHead
                     key={c}
                     scope="col"
                     aria-sort={active ? (sort.descending ? 'descending' : 'ascending') : 'none'}
                   >
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-between"
                       type="button"
                       onClick={() =>
                         setSort(
@@ -408,24 +425,24 @@ function SheetViewer({ sheets }: { sheets: Sheet[] }) {
                     >
                       {header[c] || `Column ${c + 1}`}
                       <ArrowDownUp size={12} aria-hidden="true" />
-                    </button>
-                  </th>
+                    </Button>
+                  </TableHead>
                 );
               })}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.slice(0, MAX_ROWS).map((row, r) => (
-              <tr key={r}>
+              <TableRow key={r}>
                 {Array.from({ length: columns }, (_, c) => (
-                  <td key={c} data-numeric={numeric(row[c] ?? '') || undefined}>
+                  <TableCell key={c} data-numeric={numeric(row[c] ?? '') || undefined}>
                     {row[c] ?? ''}
-                  </td>
+                  </TableCell>
                 ))}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
         {rows.length > MAX_ROWS && (
           <Message>
             Showing the first {MAX_ROWS.toLocaleString('en-US')} rows. Search to find others.
