@@ -2,7 +2,8 @@ import 'server-only';
 import { betterAuth } from 'better-auth';
 import { getMigrations } from 'better-auth/db/migration';
 import { getPool } from './db';
-import { schema } from './schema';
+import { authSchema, schema } from './schema';
+import { mailEnabled, sendMail } from './mail';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
@@ -31,7 +32,43 @@ function makeAuth() {
     secret,
     baseURL: process.env.BETTER_AUTH_URL || 'http://127.0.0.1:4200',
     database,
-    emailAndPassword: { enabled: true, minPasswordLength: 8, maxPasswordLength: 128 },
+    emailAndPassword: {
+      enabled: true,
+      minPasswordLength: 8,
+      maxPasswordLength: 128,
+      revokeSessionsOnPasswordReset: true,
+      ...(mailEnabled
+        ? {
+            // Not awaited: a slow mail server must not delay or reveal the outcome of the request.
+            sendResetPassword: async ({ user, url }) => {
+              void sendMail(user.email, 'Reset your UNUVIA password', [
+                `Hello ${user.name},`,
+                '',
+                'Use this link to choose a new password. It works once and expires in one hour.',
+                url,
+                '',
+                'If you did not ask for this, you can ignore this email.',
+              ]);
+            },
+          }
+        : {}),
+    },
+    ...(mailEnabled
+      ? {
+          emailVerification: {
+            sendOnSignUp: true,
+            autoSignInAfterVerification: true,
+            sendVerificationEmail: async ({ user, url }) => {
+              void sendMail(user.email, 'Confirm your UNUVIA email address', [
+                `Hello ${user.name},`,
+                '',
+                'Confirm your email address to finish setting up your account:',
+                url,
+              ]);
+            },
+          },
+        }
+      : {}),
     user: { deleteUser: { enabled: true } },
     socialProviders: googleEnabled
       ? {
@@ -54,8 +91,15 @@ function makeAuth() {
     try {
       // Serialize initialization across workers without racing Better Auth migrations.
       await client.query('SELECT pg_advisory_lock(85719203)');
-      const { runMigrations } = await getMigrations(instance.options);
-      await runMigrations();
+      try {
+        const { runMigrations } = await getMigrations(instance.options);
+        await runMigrations();
+      } catch (error) {
+        // Better Auth reads catalog columns added in PostgreSQL 11. On an older server
+        // (o2switch runs 9.6) its tables come from the bundled definition instead.
+        if ((error as { code?: string }).code !== '42703') throw error;
+        await client.query(authSchema);
+      }
       await client.query(schema);
     } finally {
       try {

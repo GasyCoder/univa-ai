@@ -31,7 +31,7 @@ The previous SQLite file is left intact as a backup. Its test accounts are not i
 - Settings: appearance, default model and supported reasoning preference. Defaults are saved on the server and read when opening the assistant. The theme toggle also saves a signed-in user's appearance preference.
 - Password changes use Better Auth and revoke other sessions. Account deletion requires explicit confirmation plus the current password for password accounts, or a recent sign-in for Google-only accounts. Server profile/subscription records and local chat files on the current device are removed.
 
-Email verification messages and password-reset email delivery are not configured. Google verifies its sign-in email. Account IDs and paid entitlements supplied in browser requests cannot change account ownership or privileges.
+Email is sent over SMTP when `SMTP_HOST`, `SMTP_USER` and `SMTP_PASSWORD` are set (`src/lib/mail.ts`): a verification link on registration, a password-reset link from the Log in screen (`/reset-password`), and a message when an administrator approves or rejects a payment. Without SMTP these emails and the “Forgot your password?” link are disabled. Verification is not required to use the workspace. Google verifies its sign-in email. There is no reminder before a Pro period ends. Account IDs and paid entitlements supplied in browser requests cannot change account ownership or privileges.
 
 ### Enable Google and Drive
 
@@ -128,4 +128,4 @@ npm run build
 npm start
 ```
 
-Deployment to o2switch is a separate step: no production server, domain, database or payment destination has been changed by this local implementation.
+For o2switch (cPanel “Setup Node.js App”), `app.js` is the startup file and `npm run deploy:pack` builds `unuvia-deploy.tar.gz` to upload. `npm run prod:check` verifies a production configuration (database, Claude API key, SMTP) without printing secrets. The step-by-step guide, in French, is `docs/deploiement-o2switch.md`.

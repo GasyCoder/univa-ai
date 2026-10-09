@@ -2,6 +2,7 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { getAuth, getAuthDatabase } from './auth';
 import { transaction } from './db';
+import { logFailure } from './log';
 import { PLANS, proPrice, suggestedCountry, type PlanId, type Profile } from './plans';
 import { getClaudeModelIds } from './claude';
 import { usageCost, type TokenUsage } from './chat-models';
@@ -139,6 +140,7 @@ export class AccountError extends Error {
 }
 export function apiFailure(error: unknown) {
   const known = error instanceof AccountError;
+  if (!known) logFailure('request', error);
   return Response.json(
     {
       error: {
@@ -265,6 +267,8 @@ export async function reviewPayment(
       'UPDATE payment_request SET status=$2,reviewed_by=$3,reviewed_at=NOW(),note=$4 WHERE id=$1',
       [id, decision === 'approve' ? 'approved' : 'rejected', adminId, note]
     );
+    return (await client.query('SELECT name,email FROM "user" WHERE id=$1', [payment.user_id]))
+      .rows[0] as { name: string; email: string };
   });
 }
 export async function changeSubscription(

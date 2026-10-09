@@ -8,6 +8,7 @@ import {
   reviewPayment,
 } from '@/lib/account';
 import { getAuthDatabase } from '@/lib/auth';
+import { sendMail } from '@/lib/mail';
 export const runtime = 'nodejs';
 export async function GET(request: Request) {
   try {
@@ -46,9 +47,29 @@ export async function POST(request: Request) {
       throw new AccountError('invalid_request', 422);
     if (body.action === 'reject' && !body.note.trim())
       throw new AccountError('note_required', 422, 'note');
-    if (body.action === 'approve' || body.action === 'reject')
-      await reviewPayment(user.id, body.id, body.action, body.note.trim());
-    else
+    if (body.action === 'approve' || body.action === 'reject') {
+      const payer = await reviewPayment(user.id, body.id, body.action, body.note.trim());
+      void sendMail(
+        payer.email,
+        body.action === 'approve'
+          ? 'Your UNUVIA Pro plan is active'
+          : 'Your UNUVIA payment request',
+        body.action === 'approve'
+          ? [
+              `Hello ${payer.name},`,
+              '',
+              'Your payment has been verified and Pro is active for 30 days.',
+              'Pro does not renew automatically; you can renew from your Plan tab at any time.',
+            ]
+          : [
+              `Hello ${payer.name},`,
+              '',
+              'We could not verify your payment, so your plan has not changed.',
+              `Reason: ${body.note.trim()}`,
+              'You can submit a new reference from your Plan tab.',
+            ]
+      );
+    } else
       await changeSubscription(
         user.id,
         body.id,

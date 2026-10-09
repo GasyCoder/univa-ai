@@ -43,7 +43,7 @@ export async function setup({
   );
   const schemaSource = await readFile('src/lib/schema.ts', 'utf8');
   await database.query(
-    schemaSource.slice(schemaSource.indexOf('`') + 1, schemaSource.lastIndexOf('`'))
+    schemaSource.slice(schemaSource.indexOf('`') + 1, schemaSource.indexOf('`;'))
   );
   if (plan === 'pro')
     await database.query(
@@ -194,6 +194,15 @@ export async function setup({
     { context }
   );
   const serverOnly = new SyntheticModule([], () => {}, { context });
+  const mails = [];
+  const mail = new SyntheticModule(
+    ['mailEnabled', 'sendMail'],
+    function () {
+      this.setExport('mailEnabled', true);
+      this.setExport('sendMail', async (to, subject, lines) => mails.push({ to, subject, lines }));
+    },
+    { context }
+  );
   // The real SDK, sending its requests through the mocked fetch above.
   const sdk = new SyntheticModule(
     ['default'],
@@ -226,6 +235,7 @@ export async function setup({
           : resolve(dirname(parent.identifier), specifier);
         if (dependency === resolve('src/lib/auth')) return auth;
         if (dependency === resolve('src/lib/db')) return db;
+        if (dependency === resolve('src/lib/mail')) return mail;
         return load(dependency + '.ts');
       });
       await route.evaluate();
@@ -239,6 +249,7 @@ export async function setup({
   }
   return {
     calls,
+    mails,
     database,
     async close() {
       for (const response of responses)

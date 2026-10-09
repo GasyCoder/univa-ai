@@ -34,6 +34,9 @@ export function AccessDialog({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [google, setGoogle] = useState<boolean | null>(null);
+  const [mail, setMail] = useState(false);
+  const [forgot, setForgot] = useState(false);
+  const [sent, setSent] = useState(false);
   const [providerError, setProviderError] = useState(false);
   const [providerAttempt, setProviderAttempt] = useState(0);
   useEffect(() => {
@@ -41,6 +44,8 @@ export function AccessDialog({
       setMode(initialMode);
       setError('');
       setSuccess(false);
+      setForgot(false);
+      setSent(false);
     }
   }, [open, initialMode]);
   useEffect(() => {
@@ -53,7 +58,10 @@ export function AccessDialog({
         if (!r.ok) throw new Error('Unable to load sign-in options');
         return r.json();
       })
-      .then((data) => setGoogle(data.googleEnabled === true))
+      .then((data) => {
+        setGoogle(data.googleEnabled === true);
+        setMail(data.mailEnabled === true);
+      })
       .catch(() => {
         if (!controller.signal.aborted) setProviderError(true);
       });
@@ -68,6 +76,23 @@ export function AccessDialog({
     const email = String(data.get('email') || '').trim();
     const password = String(data.get('password') || '');
     const name = String(data.get('name') || '').trim();
+    if (forgot) {
+      try {
+        const result = await authClient.requestPasswordReset({
+          email,
+          redirectTo: '/reset-password',
+        });
+        if (result.error?.status === 429)
+          setError('Too many attempts. Please wait a moment and try again.');
+        // The same answer whether or not the address has an account.
+        else setSent(true);
+      } catch {
+        setError('Unable to connect. Please check your connection and try again.');
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     try {
       const result =
         mode === 'signup'
@@ -184,6 +209,8 @@ export function AccessDialog({
               onValueChange={(value) => {
                 setMode(value as AuthMode);
                 setError('');
+                setForgot(false);
+                setSent(false);
               }}
             >
               <TabsList className="auth-tabs w-full">
@@ -249,7 +276,7 @@ export function AccessDialog({
                       <div className="auth-divider">
                         <span>or continue with email</span>
                       </div>
-                      <form onSubmit={submit} className="auth-form" key={mode}>
+                      <form onSubmit={submit} className="auth-form" key={mode + forgot}>
                         {mode === 'signup' && (
                           <div>
                             <Label htmlFor="auth-name">Full name</Label>
@@ -280,23 +307,33 @@ export function AccessDialog({
                             disabled={busy}
                           />
                         </div>
-                        <div>
-                          <Label htmlFor="auth-password">Password</Label>
-                          <Input
-                            className="h-11"
-                            id="auth-password"
-                            name="password"
-                            type="password"
-                            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                            minLength={8}
-                            maxLength={128}
-                            placeholder={
-                              mode === 'signup' ? 'At least 8 characters' : 'Your password'
-                            }
-                            required
-                            disabled={busy}
-                          />
-                        </div>
+                        {!forgot && (
+                          <div>
+                            <Label htmlFor="auth-password">Password</Label>
+                            <Input
+                              className="h-11"
+                              id="auth-password"
+                              name="password"
+                              type="password"
+                              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                              minLength={8}
+                              maxLength={128}
+                              placeholder={
+                                mode === 'signup' ? 'At least 8 characters' : 'Your password'
+                              }
+                              required
+                              disabled={busy}
+                            />
+                          </div>
+                        )}
+                        {sent && (
+                          <Alert>
+                            <AlertDescription role="status">
+                              If this address has an account, a reset link is on its way. Check your
+                              inbox and spam folder.
+                            </AlertDescription>
+                          </Alert>
+                        )}
                         {error && (
                           <Alert variant="destructive">
                             <AlertDescription>{error}</AlertDescription>
@@ -310,12 +347,28 @@ export function AccessDialog({
                           {busy ? <LoaderCircle className="animate-spin" size={18} /> : null}
                           {busy
                             ? 'Please wait…'
-                            : mode === 'signup'
-                              ? 'Create free account'
-                              : 'Log in'}
+                            : forgot
+                              ? 'Send reset link'
+                              : mode === 'signup'
+                                ? 'Create free account'
+                                : 'Log in'}
                           {!busy && <ArrowRight size={16} />}
                         </Button>
                       </form>
+                      {mode === 'login' && mail && (
+                        <Button
+                          variant="link"
+                          className="min-h-11 w-full"
+                          disabled={busy}
+                          onClick={() => {
+                            setForgot(!forgot);
+                            setSent(false);
+                            setError('');
+                          }}
+                        >
+                          {forgot ? 'Back to log in' : 'Forgot your password?'}
+                        </Button>
+                      )}
                       <p className="auth-footnote">
                         {mode === 'signup'
                           ? 'No university email required. No credit card needed.'

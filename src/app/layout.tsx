@@ -31,7 +31,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.BETTER_AUTH_URL || SITE.url),
+  metadataBase: new URL(SITE.url),
   title,
   description,
   applicationName: 'UNUVIA',

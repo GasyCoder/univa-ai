@@ -172,6 +172,10 @@ test('approval grants exactly one period, repeated concurrent approvals cannot e
     );
     assert.equal(results.filter((r) => r.status === 200).length, 1);
     assert.equal(results.filter((r) => r.status === 409).length, 4);
+    assert.deepEqual(
+      s.mails.map((mail) => [mail.to, mail.subject]),
+      [['first@example.test', 'Your UNUVIA Pro plan is active']]
+    );
     let account = await (await s.request('account')).json();
     assert.equal(account.plan, 'pro');
     const firstEnd = new Date(account.subscription.current_period_end);
@@ -252,6 +256,8 @@ test('rejection needs a note, preserves Free and prevents reference reuse', asyn
     const history = await (await s.request('subscription')).json();
     assert.equal(history.requests[0].status, 'rejected');
     assert.equal(history.requests[0].note, 'Payment not received');
+    assert.equal(s.mails.at(-1).to, 'first@example.test');
+    assert.ok(s.mails.at(-1).lines.includes('Reason: Payment not received'));
     assert.equal((await (await s.request('account')).json()).plan, 'free');
     assert.equal(
       (await s.request('subscription', 'POST', { method: 'card', reference: 'missing-123' }))

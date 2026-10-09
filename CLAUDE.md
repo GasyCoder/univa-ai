@@ -9,6 +9,8 @@ npm run build
 npm run test:api     # needs DATABASE_URL; the Claude API is mocked
 npm run test:e2e     # build first; Playwright against a temporary schema
 npm run claude:check # lists the models the ANTHROPIC_API_KEY can use
+npm run prod:check   # checks a production configuration without printing secrets
+npm run deploy:pack  # builds unuvia-deploy.tar.gz for o2switch
 ```
 
 ## Claude API
@@ -17,3 +19,8 @@ npm run claude:check # lists the models the ANTHROPIC_API_KEY can use
 Model ids, prices and reasoning levels live in `src/lib/chat-models.ts`; plans and usage
 allowances in `src/lib/plans.ts`. When adding or changing a model, update both and the
 `UPDATE profile` list in `src/lib/schema.ts`.
+
+## Tests and email
+
+Never run the browser tests with a real `SMTP_HOST`: `scripts/e2e.mjs` clears it so that test
+sign-ups cannot send mail from the production mailbox.
